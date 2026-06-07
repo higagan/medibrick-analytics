@@ -322,9 +322,6 @@ out body center;
         else:
             final_type = "unknown"
 
-        if allowed and final_type not in allowed:
-            continue
-
         if "lat" in el and "lon" in el:
             elat, elon = el.get("lat", 0.0), el.get("lon", 0.0)
         else:
