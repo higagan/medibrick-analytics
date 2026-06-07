@@ -61,6 +61,25 @@ def _parse_card(card, *, hospital: str, base_url: str) -> dict | None:
     if not title or len(title) < 3:
         return None
 
+    # Skip footer/sidebar links that point to aggregator pages (e.g. naukri.com
+    # company pages). Real job links are /jobs/<id>-<slug> with a human title.
+    bad_markers = (
+        "companies.naukri.com",
+        "facebook.com",
+        "twitter.com",
+        "linkedin.com",
+        "instagram.com",
+        "youtube.com",
+    )
+    if any(m in url for m in bad_markers):
+        return None
+    # If the title looks like a URL (no spaces, contains .), it's likely a logo/link
+    if title.startswith("http") or (title.count(".") >= 2 and " " not in title):
+        return None
+    # If the URL doesn't match a job-id pattern, skip
+    if "/jobs/" not in href:
+        return None
+
     loc_el = card.select_one("[class*='location']") if hasattr(card, "select_one") else None
     loc = loc_el.get_text(strip=True) if loc_el else "Bengaluru"
     city, area = split_city_area(loc)

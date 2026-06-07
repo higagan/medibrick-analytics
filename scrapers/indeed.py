@@ -53,9 +53,26 @@ def _parse_card(card, base_url: str) -> dict | None:
     loc = loc_el.get_text(strip=True) if loc_el else ""
     city, area = split_city_area(loc)
 
-    # Salary
+    # Salary: prefer the salary snippet, but skip non-salary values like
+    # "Part-time", "Full-time", "Full-time+1" that Indeed often shows in
+    # the same attribute area.
+    salary = None
+    hiring_type = ""
     salary_el = card.select_one("[data-testid='attribute_snippet_testid'], .salary-snippet, .salaryText")
-    salary = salary_el.get_text(strip=True) if salary_el else None
+    if salary_el:
+        raw = salary_el.get_text(strip=True)
+        # Salary contains digits or a currency symbol
+        if any(c.isdigit() for c in raw) or any(s in raw for s in ["₹", "$", "€", "£", "Lakh", "Cr"]):
+            salary = raw
+        elif raw:
+            # Looks like a job-type label (Part-time, Full-time, etc.)
+            hiring_type = raw
+            # Indeed often shows both. Try a second snippet for actual salary.
+            for other in card.select("[data-testid='attribute_snippet_testid']"):
+                txt = other.get_text(strip=True)
+                if txt and txt != raw and (any(c.isdigit() for c in txt) or "₹" in txt):
+                    salary = txt
+                    break
 
     # Date
     date_el = card.select_one("[data-testid='myJobsState'], .date, date")
@@ -79,7 +96,7 @@ def _parse_card(card, base_url: str) -> dict | None:
             city=city,
             area=area,
             salary=salary,
-            hiring_type="",
+            hiring_type=hiring_type,
             date_posted=date_posted,
             source_url=source_url,
         )

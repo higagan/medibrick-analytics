@@ -58,6 +58,8 @@ class BrowserClient:
                 "--disable-blink-features=AutomationControlled",
                 "--disable-dev-shm-usage",
                 "--no-sandbox",
+                # Force HTTP/1.1 - some Indian sites (JobHai, Manipal) have broken HTTP/2 setups
+                "--disable-http2",
             ],
         )
         return self
@@ -97,20 +99,31 @@ class BrowserClient:
         wait_ms: int = 2000,
         timeout_ms: int = 30000,
     ) -> str:
-        """Navigate, wait for selector, return final HTML."""
-        page = await self.new_page()
-        try:
-            await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-            if wait_selector:
+        """Navigate, wait for selector, return final HTML. Retries once on HTTP/2 errors."""
+        import asyncio
+        last_err = None
+        for attempt in range(2):
+            page = await self.new_page()
+            try:
                 try:
-                    await page.wait_for_selector(wait_selector, timeout=timeout_ms)
+                    await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
                 except Exception as e:
-                    logger.warning(f"Selector {wait_selector!r} not found: {e}")
-            else:
-                await page.wait_for_timeout(wait_ms)
-            return await page.content()
-        finally:
-            await page.context.close()
+                    if "ERR_HTTP2" in str(e) and attempt == 0:
+                        logger.warning(f"HTTP/2 error on {url}, retrying with fresh context")
+                        last_err = e
+                        continue
+                    raise
+                if wait_selector:
+                    try:
+                        await page.wait_for_selector(wait_selector, timeout=timeout_ms)
+                    except Exception as e:
+                        logger.warning(f"Selector {wait_selector!r} not found: {e}")
+                else:
+                    await page.wait_for_timeout(wait_ms)
+                return await page.content()
+            finally:
+                await page.context.close()
+        raise last_err if last_err else RuntimeError("fetch_html failed")
 
     async def fetch_all_pages(
         self,
