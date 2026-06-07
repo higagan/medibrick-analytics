@@ -439,6 +439,42 @@ class LeadsResponse(BaseModel):
     message: Optional[str] = None
 
 
+class RefreshRequest(BaseModel):
+    only: Optional[List[str]] = None
+    skip: Optional[List[str]] = None
+    city: Optional[str] = "Bengaluru"
+
+
+class RefreshResponse(BaseModel):
+    status: str
+    message: str
+    note: Optional[str] = None
+
+
+REPO_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+@app.post("/leads/refresh", response_model=RefreshResponse, dependencies=[])
+async def refresh_leads(
+    request: RefreshRequest = RefreshRequest(),
+    authorization: Optional[str] = Header(None),
+):
+    """
+    Trigger a laptop-side scrape and push. NOTE: Vercel serverless CANNOT run
+    scrapers itself (no Playwright, IP blocks, 10s timeout). This endpoint is a
+    no-op here — it instructs the UI to show a message telling the user to run
+    ./update.sh on their Mac. The leads page already reads live from Supabase.
+    """
+    require_auth(authorization)
+    return RefreshResponse(
+        status="queued_locally",
+        message="Run ./update.sh on your laptop to scrape and push new leads.",
+        note="The Vercel serverless environment cannot run browser-based scrapers. " \
+             "Scraping must run on your Mac and push to Supabase. The leads page " \
+             "will refresh automatically once new data is in the DB.",
+    )
+
+
 @app.get("/leads", response_model=LeadsResponse)
 async def get_leads(
     city: Optional[str] = None,

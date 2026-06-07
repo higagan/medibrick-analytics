@@ -27,6 +27,7 @@
           </div>
         </div>
         <a href="/" class="text-sm text-blue-600 font-medium whitespace-nowrap">← Home</a>
+        <button id="refreshBtn" title="Run scraper on your Mac, then click to reload" class="ml-2 text-sm font-medium text-gray-600 hover:text-gray-900 whitespace-nowrap">🔄 Refresh</button>
       </div>
     </div>
 
@@ -244,6 +245,30 @@
     }
     cityInput.addEventListener('input', debouncedRender);
     areaInput.addEventListener('input', debouncedRender);
+
+    document.getElementById('refreshBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('refreshBtn');
+      const orig = btn.textContent;
+      btn.textContent = '⏳ Refreshing...';
+      btn.disabled = true;
+      // /leads/refresh is a no-op on Vercel — it just reminds the user to run
+      // ./update.sh on their Mac. We then reload the leads list (which
+      // reflects the latest Supabase data).
+      try {
+        const token = localStorage.getItem('medibrick_token');
+        if (token) {
+          await fetch('/leads/refresh', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ city: cityInput.value || 'Bengaluru' }),
+          }).catch(() => {});
+        }
+      } finally {
+        await loadLeads();
+        btn.textContent = '✅ Refreshed';
+        setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
+      }
+    });
 
     loadLeads();
   </script>

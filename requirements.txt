@@ -4,3 +4,7 @@ httpx
 pydantic
 supabase
 python-dotenv
+beautifulsoup4
+# Playwright is optional - only needed for JS-rendered sites (Indeed, Trakstar, etc.)
+# Install with: pip install playwright && python -m playwright install chromium
+# playwright>=1.40
