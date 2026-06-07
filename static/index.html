@@ -331,9 +331,12 @@
             // On mobile, scroll up just enough so the area selector + filter chips stay visible
             if (window.innerWidth < 768) {
               setTimeout(() => {
-                const controls = document.querySelector('#appShell > .bg-white');
-                if (controls) {
-                  const top = controls.getBoundingClientRect().top + window.scrollY - 16;
+                const areaLabel = Array.from(document.querySelectorAll('#appShell label')).find(
+                  el => el.textContent.trim() === 'Area'
+                );
+                const areaField = areaLabel?.parentElement;
+                if (areaField) {
+                  const top = areaField.getBoundingClientRect().top + window.scrollY - 24;
                   window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
                 }
               }, 100);
