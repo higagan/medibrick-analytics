@@ -300,9 +300,16 @@
 
         if (data.results && data.results.length) {
           lastResults = data.results;
-          renderResults();
+          try {
+            renderResults();
+          } catch (renderErr) {
+            console.error('Render error:', renderErr);
+            message.textContent = 'Results loaded but display failed. Check console.';
+            message.classList.remove('hidden');
+          }
         }
       } catch (e) {
+        console.error('Search error:', e);
         loading.classList.add('hidden');
         searchBtn.disabled = false;
         searchBtn.textContent = 'Find Medical Centers';
@@ -325,8 +332,6 @@
     backToTop.addEventListener('click', () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
-
-    loadAreas();
   </script>
 </body>
 </html>
