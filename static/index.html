@@ -170,7 +170,20 @@
       `;
     }
 
-    function renderResults() {
+    function updateFilterCounts() {
+      const counts = {};
+      for (const r of lastResults) {
+        counts[r.type] = (counts[r.type] || 0) + 1;
+      }
+      document.querySelectorAll('.filter-chip').forEach(btn => {
+        const type = btn.dataset.type;
+        const count = type === 'all' ? lastResults.length : (counts[type] || 0);
+        const baseText = type === 'all' ? 'All' : `${typeEmoji[type] || '🏥'} ${typeLabel[type] || type}`;
+        btn.textContent = `${baseText} (${count})`;
+      });
+    }
+      updateFilterCounts();
+
       const filtered = activeFilter === 'all'
         ? lastResults
         : lastResults.filter(r => r.type === activeFilter);

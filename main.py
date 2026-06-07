@@ -79,6 +79,7 @@ class MedicalCenter(BaseModel):
 
 class SearchResponse(BaseModel):
     results: List[MedicalCenter]
+    counts: Optional[dict] = None
     message: Optional[str] = None
 
 
@@ -326,7 +327,12 @@ async def search_medical(request: SearchRequest):
         allowed = {a.strip().lower() for a in request.filter.split(",") if a.strip()}
         results = [r for r in results if r.type in allowed]
 
-    return SearchResponse(results=results, message=f"Source: {source}")
+    # 4. Compute type counts
+    counts = {}
+    for r in results:
+        counts[r.type] = counts.get(r.type, 0) + 1
+
+    return SearchResponse(results=results, counts=counts, message=f"Source: {source}")
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
