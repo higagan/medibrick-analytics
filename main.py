@@ -7,7 +7,7 @@ from pydantic import BaseModel
 import httpx
 from typing import List, Optional
 
-from db import get_cached_results, save_results
+from db import get_cached_results, merge_and_save_results
 
 # Load env vars
 try:
@@ -315,9 +315,9 @@ async def search_medical(request: SearchRequest):
         except Exception as e2:
             return SearchResponse(results=[], message=f"Search failed: {str(e2)}")
 
-    # 2. Save to Supabase cache
+    # 2. Merge and save to Supabase cache (keeps existing + adds new)
     try:
-        await save_results(area, [r.model_dump() for r in results])
+        await merge_and_save_results(area, [r.model_dump() for r in results])
     except Exception as e:
         print(f"Cache write error: {e}")
 
