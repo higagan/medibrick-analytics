@@ -169,6 +169,12 @@
       `;
     }
 
+    function matchesText(lead, text) {
+      if (!text) return true;
+      const haystack = ((lead.city || '') + ' ' + (lead.area || '')).toLowerCase();
+      return haystack.includes(text.toLowerCase());
+    }
+
     function renderResults() {
       if (!allLeads.length) {
         message.textContent = 'No leads yet. Run the scraper on your laptop to populate.';
@@ -177,7 +183,8 @@
         return;
       }
 
-      const filtered = allLeads.filter(l => roleMatches(activeRole, l));
+      const textFilter = (cityInput.value || '') + (areaInput.value ? ' ' + areaInput.value : '');
+      const filtered = allLeads.filter(l => roleMatches(activeRole, l) && matchesText(l, textFilter));
 
       if (!filtered.length) {
         message.textContent = 'No leads match this filter.';
@@ -231,12 +238,12 @@
     }
 
     let debounce;
-    function debouncedLoad() {
+    function debouncedRender() {
       clearTimeout(debounce);
-      debounce = setTimeout(loadLeads, 400);
+      debounce = setTimeout(renderResults, 150);
     }
-    cityInput.addEventListener('input', debouncedLoad);
-    areaInput.addEventListener('input', debouncedLoad);
+    cityInput.addEventListener('input', debouncedRender);
+    areaInput.addEventListener('input', debouncedRender);
 
     loadLeads();
   </script>
