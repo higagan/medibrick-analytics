@@ -99,10 +99,8 @@ GOOGLE_TYPE_MAP = {
 REVERSE_TYPE_MAP = {
     "hospital": "hospital",
     "doctor": "clinic",
-    "pharmacy": "pharmacy",
     "health": "ayush",
     "dentist": "dentist",
-}
 }
 
 
