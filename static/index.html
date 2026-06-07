@@ -24,7 +24,24 @@
   </style>
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen">
-  <div class="max-w-3xl mx-auto px-4 py-6">
+  <!-- Login screen -->
+  <div id="loginScreen" class="max-w-md mx-auto px-4 py-12">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">🏥 Bangalore Medical Finder</h1>
+      <p class="text-sm text-gray-500 mb-4">Internal team access only.</p>
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Access password</label>
+          <input id="passwordInput" type="password" required autocomplete="current-password" class="w-full rounded-lg border border-gray-300 bg-white py-3 px-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Enter team password" />
+        </div>
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 px-4 rounded-lg text-base min-h-[48px]">Sign in</button>
+        <p id="loginError" class="text-sm text-red-600 hidden"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main app (hidden until logged in) -->
+  <div id="appShell" class="hidden max-w-3xl mx-auto px-4 py-6">
     <!-- Header -->
     <div class="mb-6">
       <h1 class="text-2xl font-bold text-gray-900">🏥 Bangalore Medical Finder</h1>
@@ -85,6 +102,45 @@
   </div>
 
   <script>
+    // --- Auth layer ---
+    const SESSION_TOKEN = sessionStorage.getItem('medibrick_token');
+
+    if (SESSION_TOKEN) {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('appShell').classList.remove('hidden');
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = document.getElementById('passwordInput').value;
+      const errEl = document.getElementById('loginError');
+      errEl.classList.add('hidden');
+      try {
+        const res = await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }),
+        });
+        if (!res.ok) {
+          errEl.textContent = 'Wrong password.';
+          errEl.classList.remove('hidden');
+          return;
+        }
+        const data = await res.json();
+        sessionStorage.setItem('medibrick_token', data.token);
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('appShell').classList.remove('hidden');
+        loadAreas();
+      } catch (err) {
+        errEl.textContent = 'Sign in failed. Try again.';
+        errEl.classList.remove('hidden');
+      }
+    });
+
+    function authHeaders() {
+      return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + sessionStorage.getItem('medibrick_token') };
+    }
+
     const areaSelect = document.getElementById('areaSelect');
     const searchBtn = document.getElementById('searchBtn');
     const loading = document.getElementById('loading');
@@ -232,7 +288,7 @@
       try {
         const res = await fetch('/search', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders(),
           body: JSON.stringify({ area }),
         });
         const data = await res.json();
@@ -240,6 +296,13 @@
         loading.classList.add('hidden');
         searchBtn.disabled = false;
         searchBtn.textContent = 'Find Medical Centers';
+
+        if (res.status === 401) {
+          sessionStorage.removeItem('medibrick_token');
+          document.getElementById('loginScreen').classList.remove('hidden');
+          document.getElementById('appShell').classList.add('hidden');
+          return;
+        }
 
         if (data.message) {
           message.textContent = data.message;
@@ -260,6 +323,7 @@
     }
 
     searchBtn.addEventListener('click', doSearch);
+    if (SESSION_TOKEN) loadAreas();
 
     // Back to top
     window.addEventListener('scroll', () => {

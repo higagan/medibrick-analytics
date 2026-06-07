@@ -1,6 +1,7 @@
 import os
 import asyncio
-from fastapi import FastAPI
+import secrets
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -26,6 +27,45 @@ app.add_middleware(
 )
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY")
+# Simple shared-secret auth for internal team. Set in env or auto-generate per session.
+APP_PASSWORD = os.getenv("APP_PASSWORD")
+
+# In-memory session tokens (token -> created_at). For internal use only.
+import time
+_sessions: dict = {}
+
+
+def create_session_token() -> str:
+    token = secrets.token_urlsafe(32)
+    _sessions[token] = time.time()
+    return token
+
+
+def verify_session(token: Optional[str]) -> bool:
+    if not token or token not in _sessions:
+        return False
+    # Expire after 7 days
+    if time.time() - _sessions[token] > 7 * 24 * 3600:
+        del _sessions[token]
+        return False
+    return True
+
+
+def require_auth(authorization: Optional[str] = Header(None)) -> None:
+    """Dependency: require valid session token in Authorization header."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    token = authorization[7:].strip()
+    if not verify_session(token):
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+
+
+class LoginRequest(BaseModel):
+    password: str
+
+
+class LoginResponse(BaseModel):
+    token: str
 
 BANGALORE_AREAS = [
     "HSR Layout",
@@ -83,8 +123,20 @@ class SearchResponse(BaseModel):
     message: Optional[str] = None
 
 
-@app.get("/areas")
+@app.post("/auth/login", response_model=LoginResponse)
+def login(req: LoginRequest):
+    """Simple password login. Returns a session token."""
+    if not APP_PASSWORD:
+        raise HTTPException(status_code=500, detail="APP_PASSWORD not configured on server")
+    if not secrets.compare_digest(req.password, APP_PASSWORD):
+        raise HTTPException(status_code=401, detail="Wrong password")
+    token = create_session_token()
+    return LoginResponse(token=token)
+
+
+@app.get("/areas", dependencies=[])
 def get_areas():
+    # Areas list is public so the login page can render the UI shell.
     return {"areas": BANGALORE_AREAS}
 
 
@@ -282,8 +334,8 @@ out body center;
     return results
 
 
-@app.post("/search", response_model=SearchResponse)
-async def search_medical(request: SearchRequest):
+@app.post("/search", response_model=SearchResponse, dependencies=[])
+async def search_medical(request: SearchRequest, authorization: Optional[str] = Header(None)):
     area = request.area.strip()
     if not area:
         return SearchResponse(results=[], message="Area is required.")
@@ -296,9 +348,15 @@ async def search_medical(request: SearchRequest):
             if request.filter:
                 allowed = {a.strip().lower() for a in request.filter.split(",") if a.strip()}
                 results = [r for r in results if r.type in allowed]
-            return SearchResponse(results=results)
+            counts = {}
+            for r in results:
+                counts[r.type] = counts.get(r.type, 0) + 1
+            return SearchResponse(results=results, counts=counts)
     except Exception as e:
         print(f"Cache read error: {e}")
+
+    # Require auth for cache-miss (fresh fetches)
+    require_auth(authorization)
 
     # 1. Try Google Places (primary)
     results: List[MedicalCenter] = []
