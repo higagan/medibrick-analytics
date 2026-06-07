@@ -311,7 +311,20 @@ out body center;
 
         tags = el.get("tags", {})
         name = tags.get("name", "Unnamed")
-        amenity = tags.get("amenity", "unknown")
+        amenity = tags.get("amenity", "")
+        healthcare = tags.get("healthcare", "")
+        speciality = tags.get("healthcare:speciality", "")
+
+        # Classify: amenity (hospital/clinic/doctors/dentist) OR AYUSH (healthcare=alternative with sub-speciality)
+        if amenity in MEDICAL_AMENITIES:
+            final_type = amenity
+        elif healthcare in AYUSH_HEALTHCARE_TAGS or speciality in AYUSH_HEALTHCARE_TAGS:
+            final_type = "ayush"
+        else:
+            final_type = "unknown"
+
+        if allowed and final_type not in allowed:
+            continue
 
         if "lat" in el and "lon" in el:
             elat, elon = el.get("lat", 0.0), el.get("lon", 0.0)
