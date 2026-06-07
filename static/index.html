@@ -19,7 +19,7 @@
     .chip-hospital { background-color: #fee2e2; color: #991b1b; }
     .chip-clinic { background-color: #dbeafe; color: #1e40af; }
     .chip-doctors { background-color: #dcfce7; color: #166534; }
-    .chip-pharmacy { background-color: #fef3c7; color: #92400e; }
+    .chip-ayush { background-color: #d1fae5; color: #065f46; }
     .chip-dentist { background-color: #f3e8ff; color: #6b21a8; }
     .chip-unknown { background-color: #f3f4f6; color: #374151; }
   </style>
@@ -58,7 +58,7 @@
         </svg>
         <h1 class="text-2xl font-bold text-gray-900">MediBrick Medical Facility Finder</h1>
       </div>
-      <p class="text-sm text-gray-500 mt-1">Find hospitals, clinics, pharmacies &amp; dentists near you.</p>
+      <p class="text-sm text-gray-500 mt-1">Find hospitals, clinics, AYUSH centers &amp; dentists near you.</p>
     </div>
 
     <!-- Controls -->
@@ -88,7 +88,7 @@
         <button data-type="hospital" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700">🏥 Hospital</button>
         <button data-type="clinic" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700">🩺 Clinic</button>
         <button data-type="doctors" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700">👨‍⚕️ Doctors</button>
-        <button data-type="pharmacy" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700">💊 Pharmacy</button>
+        <button data-type="ayush" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700">🌿 AYUSH</button>
         <button data-type="dentist" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700">🦷 Dentist</button>
       </div>
     </div>
@@ -167,7 +167,7 @@
       hospital: '🏥',
       clinic: '🩺',
       doctors: '👨‍⚕️',
-      pharmacy: '💊',
+      ayush: '🌿',
       dentist: '🦷',
     };
 
@@ -175,7 +175,7 @@
       hospital: 'Hospital',
       clinic: 'Clinic',
       doctors: 'Doctors',
-      pharmacy: 'Pharmacy',
+      ayush: 'AYUSH',
       dentist: 'Dentist',
     };
 
@@ -220,7 +220,7 @@
     }
 
     function renderCard(item) {
-      const chipClass = ['hospital','clinic','doctors','pharmacy','dentist'].includes(item.type) ? `chip-${item.type}` : 'chip-unknown';
+      const chipClass = ['hospital','clinic','doctors','ayush','dentist'].includes(item.type) ? `chip-${item.type}` : 'chip-unknown';
       const emoji = typeEmoji[item.type] || '🏥';
       const label = typeLabel[item.type] || item.type;
       const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(item.name + ' Bangalore')}`;

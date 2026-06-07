@@ -80,14 +80,17 @@ BANGALORE_AREAS = [
     "Malleshwaram",
 ]
 
-MEDICAL_AMENITIES = ["hospital", "clinic", "doctors", "pharmacy", "dentist"]
+MEDICAL_AMENITIES = ["hospital", "clinic", "doctors", "dentist"]
+
+# AYUSH = Ayurveda, Yoga, Unani, Siddha, Homeopathy. OSM tags these as healthcare=alternative with sub-speciality.
+AYUSH_HEALTHCARE_TAGS = ["ayurveda", "yoga", "unani", "siddha", "homeopathy", "alternative"]
 
 # Google Places type mapping
 GOOGLE_TYPE_MAP = {
     "hospital": "hospital",
     "clinic": "doctor",
     "doctors": "doctor",
-    "pharmacy": "pharmacy",
+    "ayush": "health",
     "dentist": "dentist",
 }
 
@@ -96,8 +99,9 @@ REVERSE_TYPE_MAP = {
     "hospital": "hospital",
     "doctor": "clinic",
     "pharmacy": "pharmacy",
+    "health": "ayush",
     "dentist": "dentist",
-    "health": "hospital",
+}
 }
 
 
@@ -264,10 +268,14 @@ async def fetch_from_osm(area: str) -> List[MedicalCenter]:
         f'      node["amenity"="{a}"]{bbox_str};\n      way["amenity"="{a}"]{bbox_str};\n      relation["amenity"="{a}"]{bbox_str};'
         for a in MEDICAL_AMENITIES
     )
+    # Add AYUSH: nodes/ways with healthcare=alternative + a recognised sub-speciality
+    ayush_re = "|".join(AYUSH_HEALTHCARE_TAGS)
+    ayush_part = f'      node["healthcare"~"^({ayush_re})$"]{bbox_str};\n      way["healthcare"~"^({ayush_re})$"]{bbox_str};\n      relation["healthcare"~"^({ayush_re})$"]{bbox_str};'
     overpass_query = f"""
 [out:json][timeout:25];
 (
 {union_parts}
+{ayush_part}
 );
 out body center;
 """
@@ -321,7 +329,7 @@ out body center;
         results.append(
             MedicalCenter(
                 name=name,
-                type=amenity,
+                type=final_type,
                 address=address,
                 lat=elat,
                 lon=elon,
