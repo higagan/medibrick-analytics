@@ -49,9 +49,24 @@ if ! "$PYTHON" -c "import playwright" 2>/dev/null; then
 fi
 
 echo "🚀 Running MediBrick lead scrapers..."
-echo "   Target city: ${1:-Bengaluru}"
 echo
 
+# Show intended target city by peeking at args (purely informational;
+# scrapers/run_all.py handles the real parsing)
+CITY="Bengaluru"
+for arg in "$@"; do
+  case $arg in
+    --city)
+      shift
+      CITY="$1"
+      ;;
+    --city=*)
+      CITY="${arg#--city=}"
+      ;;
+  esac
+done
+echo "   Target city: $CITY"
+echo
 "$PYTHON" -m scrapers.run_all "$@"
 
 echo
