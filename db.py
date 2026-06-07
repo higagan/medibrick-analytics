@@ -25,7 +25,12 @@ async def get_cached_results(area: str) -> Optional[List[dict]]:
         .execute()
 
     if response.data:
-        return response.data[0]["results"]
+        results = response.data[0]["results"]
+        # Migrate legacy "pharmacy" type to "ayush" (post-rebrand)
+        for item in results:
+            if item.get("type") == "pharmacy":
+                item["type"] = "ayush"
+        return results
     return None
 
 
@@ -43,6 +48,10 @@ async def merge_and_save_results(area: str, new_results: List[dict]):
     existing = []
     if existing_response.data:
         existing = existing_response.data[0]["results"]
+        # Migrate legacy "pharmacy" type to "ayush" (post-rebrand)
+        for item in existing:
+            if item.get("type") == "pharmacy":
+                item["type"] = "ayush"
 
     # Deduplicate by name, prefer new data
     seen = set()
