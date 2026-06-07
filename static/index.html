@@ -29,12 +29,12 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h1 class="text-2xl font-bold text-gray-900 mb-2">🏥 Bangalore Medical Finder</h1>
       <p class="text-sm text-gray-500 mb-4">Internal team access only.</p>
-      <form id="loginForm" class="space-y-4">
+      <form id="loginForm" class="space-y-4" onsubmit="event.preventDefault(); return false;">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Access password</label>
           <input id="passwordInput" type="password" required autocomplete="current-password" class="w-full rounded-lg border border-gray-300 bg-white py-3 px-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Enter team password" />
         </div>
-        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 px-4 rounded-lg text-base min-h-[48px]">Sign in</button>
+        <button type="button" id="loginBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 px-4 rounded-lg text-base min-h-[48px]">Sign in</button>
         <p id="loginError" class="text-sm text-red-600 hidden"></p>
       </form>
     </div>
@@ -110,8 +110,8 @@
       document.getElementById('appShell').classList.remove('hidden');
     }
 
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
+    document.getElementById('loginForm').addEventListener('submit', (e) => { e.preventDefault(); });
+    document.getElementById('loginBtn').addEventListener('click', async () => {
       const password = document.getElementById('passwordInput').value;
       const errEl = document.getElementById('loginError');
       errEl.classList.add('hidden');
