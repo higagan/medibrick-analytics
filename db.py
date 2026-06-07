@@ -76,3 +76,40 @@ async def merge_and_save_results(area: str, new_results: List[dict]):
         "results": merged,
         "created_at": datetime.utcnow().isoformat()
     }).execute()
+
+
+async def list_leads(city: Optional[str] = None, area: Optional[str] = None, department: Optional[str] = None) -> List[dict]:
+    """List all leads, optionally filtered by city/area/department (substring match)."""
+    if not supabase:
+        return []
+    query = supabase.table("leads").select("*").order("created_at", desc=True)
+    if city:
+        query = query.ilike("city", f"%{city}%")
+    if area:
+        query = query.ilike("area", f"%{area}%")
+    if department:
+        # Match against title OR department (fuzzy)
+        query = query.or_(f"title.ilike.%{department}%,department.ilike.%{department}%")
+    response = query.execute()
+    return response.data or []
+
+
+async def create_lead(data: dict) -> dict:
+    """Insert a new lead. Returns the inserted row."""
+    if not supabase:
+        return {"error": "Supabase not configured"}
+    data["created_at"] = datetime.utcnow().isoformat()
+    response = supabase.table("leads").insert(data).execute()
+    return response.data[0] if response.data else {"error": "Insert failed"}
+
+
+async def count_new_leads() -> int:
+    """Count leads added in the last 24 hours (for the menu badge)."""
+    if not supabase:
+        return 0
+    cutoff = (datetime.utcnow() - timedelta(hours=24)).isoformat()
+    response = supabase.table("leads") \
+        .select("id", count="exact") \
+        .gte("created_at", cutoff) \
+        .execute()
+    return response.count or 0

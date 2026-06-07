@@ -9,7 +9,7 @@ from pydantic import BaseModel
 import httpx
 from typing import List, Optional
 
-from db import get_cached_results, merge_and_save_results
+from db import get_cached_results, merge_and_save_results, list_leads, create_lead, count_new_leads
 
 # Load env vars
 try:
@@ -408,6 +408,55 @@ async def search_medical(request: SearchRequest, authorization: Optional[str] = 
         counts[r.type] = counts.get(r.type, 0) + 1
 
     return SearchResponse(results=results, counts=counts, message=f"Source: {source}")
+
+
+# ---------------------------------------------------------------------------
+# Lead Generation endpoints
+# ---------------------------------------------------------------------------
+
+class Lead(BaseModel):
+    hospital: Optional[str] = None
+    role: Optional[str] = None
+    department: Optional[str] = None
+    city: Optional[str] = None
+    area: Optional[str] = None
+    salary: Optional[str] = None
+    hiring_type: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    contact: Optional[str] = None
+    notes: Optional[str] = None
+    date_posted: Optional[str] = None
+    source_url: Optional[str] = None
+    source: Optional[str] = None
+    llm_data: Optional[dict] = None
+    created_at: Optional[str] = None
+
+
+class LeadsResponse(BaseModel):
+    results: List[Lead]
+    new_count: int = 0
+    message: Optional[str] = None
+
+
+@app.get("/leads", response_model=LeadsResponse)
+async def get_leads(
+    city: Optional[str] = None,
+    area: Optional[str] = None,
+    department: Optional[str] = None,
+):
+    """List all leads (newest first). Optional filters via query params."""
+    try:
+        results = await list_leads(city=city, area=area, department=department)
+        new_count = await count_new_leads()
+    except Exception as e:
+        return LeadsResponse(results=[], new_count=0, message=f"Leads fetch failed: {str(e)}")
+
+    return LeadsResponse(
+        results=[Lead(**r) for r in results],
+        new_count=new_count,
+        message=f"Showing {len(results)} leads, {new_count} new in last 24h",
+    )
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediBrick Leads</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 88 L50 88 C25 70 8 50 8 32 C8 16 20 6 32 6 C40 6 46 10 50 16 C54 10 60 6 68 6 C80 6 92 16 92 32 C92 50 75 70 50 88 Z' fill='%23dc2626'/><text x='50' y='58' font-family='Arial,sans-serif' font-size='44' font-weight='900' fill='white' text-anchor='middle'>M</text></svg>" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .skeleton { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+  <div class="max-w-3xl mx-auto px-4 py-6">
+    <!-- Header -->
+    <div class="mb-6">
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <div class="flex items-center gap-3">
+          <svg viewBox="0 0 100 100" class="w-10 h-10 flex-shrink-0" aria-label="MediBrick logo">
+            <path d="M50 88 L50 88 C25 70 8 50 8 32 C8 16 20 6 32 6 C40 6 46 10 50 16 C54 10 60 6 68 6 C80 6 92 16 92 32 C92 50 75 70 50 88 Z" fill="#dc2626"/>
+            <text x="50" y="58" font-family="Arial,sans-serif" font-size="44" font-weight="900" fill="white" text-anchor="middle">M</text>
+          </svg>
+          <div>
+            <h1 class="text-2xl font-bold text-gray-900">📋 Leads</h1>
+            <p class="text-xs text-gray-500" id="leadsSubtitle">Loading...</p>
+          </div>
+        </div>
+        <a href="/" class="text-sm text-blue-600 font-medium whitespace-nowrap">← Home</a>
+      </div>
+    </div>
+
+    <!-- Filter chips: sticky -->
+    <div class="sticky top-0 z-40 bg-gray-50/95 backdrop-blur-sm py-2 mb-4 -mx-4 px-4 border-b border-gray-200">
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Filter by role</label>
+      <div id="filterChips" class="flex flex-wrap gap-2">
+        <button data-role="all" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-gray-900 text-white">All</button>
+        <button data-role="doctor" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700">🩺 Doctor</button>
+        <button data-role="rmo" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700">🏥 RMO</button>
+        <button data-role="bams" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700">🌿 BAMS</button>
+        <button data-role="bhms" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700">🌿 BHMS</button>
+        <button data-role="specialist" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700">⭐ Specialist</button>
+        <button data-role="locum" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700">📍 Locum</button>
+        <button data-role="nurse" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700">💉 Nurse</button>
+      </div>
+      <div class="mt-3 grid grid-cols-2 gap-2">
+        <input id="cityInput" type="text" placeholder="City (e.g. Bengaluru)" class="rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm" />
+        <input id="areaInput" type="text" placeholder="Area (e.g. Sarjapur)" class="rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm" />
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="hidden mb-6">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div class="skeleton h-6 w-3/4 rounded mb-3"></div>
+        <div class="skeleton h-4 w-1/2 rounded mb-2"></div>
+        <div class="skeleton h-4 w-2/3 rounded"></div>
+      </div>
+    </div>
+
+    <!-- Empty / Message -->
+    <div id="message" class="hidden mb-6 text-center text-gray-500 text-base py-8"></div>
+
+    <!-- Results -->
+    <div id="results" class="space-y-4"></div>
+  </div>
+
+  <script>
+    const filterChipsEl = document.getElementById('filterChips');
+    const cityInput = document.getElementById('cityInput');
+    const areaInput = document.getElementById('areaInput');
+    const loading = document.getElementById('loading');
+    const message = document.getElementById('message');
+    const results = document.getElementById('results');
+    const leadsSubtitle = document.getElementById('leadsSubtitle');
+
+    let allLeads = [];
+    let activeRole = 'all';
+
+    function roleMatches(role, lead) {
+      const haystack = ((lead.role || '') + ' ' + (lead.department || '')).toLowerCase();
+      if (role === 'all') return true;
+      if (role === 'doctor') return /\b(doctor|duty doctor|consultant|physician|specialist|surgeon|anesthetist|pathologist|radiologist|pediatrician|gynecologist|orthopedic|cardiologist|neurologist|dermatologist|ophthalmologist|mbbs|md |dnb|dm |mch)\b/.test(haystack);
+      if (role === 'rmo') return /\b(rmo|resident medical officer|junior resident|senior resident|registrar|resident)\b/.test(haystack);
+      if (role === 'bams') return /\b(bams|ayurveda|ayurvedic)\b/.test(haystack);
+      if (role === 'bhms') return /\b(bhms|homeopathy|homeopathic)\b/.test(haystack);
+      if (role === 'specialist') return /\b(specialist|consultant)\b/.test(haystack);
+      if (role === 'locum') return /\b(locum|temporary|contract|walk[-\s]?in|urgent|immediate|flexible)\b/.test(haystack);
+      if (role === 'nurse') return /\b(nurse|nursing|gnm|anm|bsc nursing|ot nurse|icu nurse)\b/.test(haystack);
+      return false;
+    }
+
+    function formatDate(d) {
+      if (!d) return '';
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return d;
+      const now = new Date();
+      const diffDays = Math.floor((now - dt) / (1000 * 60 * 60 * 24));
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Yesterday';
+      if (diffDays < 7) return diffDays + ' days ago';
+      if (diffDays < 30) return Math.floor(diffDays / 7) + ' weeks ago';
+      return dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function deriveSource(urlStr) {
+      if (!urlStr) return { label: 'Web', url: '' };
+      try {
+        const u = new URL(urlStr);
+        const h = u.hostname.toLowerCase();
+        if (h.includes('indeed')) return { label: 'Indeed', url: urlStr };
+        if (h.includes('docthub')) return { label: 'DoctHub', url: urlStr };
+        if (h.includes('drlogy')) return { label: 'DrLogy', url: urlStr };
+        if (h.includes('foundit') || h.includes('monster')) return { label: 'Foundit', url: urlStr };
+        if (h.includes('jobhai')) return { label: 'JobHai', url: urlStr };
+        if (h.includes('manipal')) return { label: 'Manipal', url: urlStr };
+        if (h.includes('fortis')) return { label: 'Fortis', url: urlStr };
+        if (h.includes('apollo')) return { label: 'Apollo', url: urlStr };
+        if (h.includes('linkedin')) return { label: 'LinkedIn', url: urlStr };
+        if (h.includes('naukri')) return { label: 'Naukri', url: urlStr };
+        if (h.includes('trakstar')) return { label: 'Trakstar', url: urlStr };
+        const cleanHost = h.replace('www.', '').split('.')[0];
+        return { label: cleanHost.charAt(0).toUpperCase() + cleanHost.slice(1), url: urlStr };
+      } catch (e) {
+        return { label: 'Source', url: urlStr };
+      }
+    }
+
+    function renderCard(lead) {
+      const hospital = escapeHtml(lead.hospital || 'Unknown Hospital');
+      const role = escapeHtml(lead.role || 'Medical Staff');
+      const dept = escapeHtml(lead.department || 'General');
+      const city = escapeHtml(lead.city || '');
+      const area = escapeHtml(lead.area || '');
+      const salary = escapeHtml(lead.salary || '');
+      const date = formatDate(lead.date_posted);
+      const src = deriveSource(lead.source_url);
+
+      const sourceBadge = src.url
+        ? `<a href="${escapeHtml(src.url)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors whitespace-nowrap">${escapeHtml(src.label)} ↗</a>`
+        : `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">${escapeHtml(src.label)}</span>`;
+
+      const location = [area, city].filter(Boolean).join(', ');
+
+      return `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          <div class="flex items-start justify-between gap-2 mb-2">
+            <h2 class="text-lg font-bold text-gray-900 leading-tight">${hospital}</h2>
+            ${sourceBadge}
+          </div>
+          <div class="flex items-center gap-2 mb-2 flex-wrap">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-indigo-100 text-indigo-800">${role}</span>
+            <span class="text-xs text-gray-500">${dept}</span>
+          </div>
+          ${location ? `<p class="text-sm text-gray-600">📍 ${location}</p>` : ''}
+          ${salary ? `<p class="text-sm text-green-700 font-semibold mt-1">💰 ${salary}</p>` : ''}
+          ${date ? `<p class="text-xs text-gray-500 mt-2">${date}</p>` : ''}
+        </div>
+      `;
+    }
+
+    function renderResults() {
+      if (!allLeads.length) {
+        message.textContent = 'No leads yet. Run the scraper on your laptop to populate.';
+        message.classList.remove('hidden');
+        results.innerHTML = '';
+        return;
+      }
+
+      const filtered = allLeads.filter(l => roleMatches(activeRole, l));
+
+      if (!filtered.length) {
+        message.textContent = 'No leads match this filter.';
+        message.classList.remove('hidden');
+        results.innerHTML = '';
+        return;
+      }
+
+      message.classList.add('hidden');
+      results.innerHTML = filtered.map(renderCard).join('');
+    }
+
+    filterChipsEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('.filter-chip');
+      if (!btn) return;
+      activeRole = btn.dataset.role;
+      document.querySelectorAll('.filter-chip').forEach(b => {
+        if (b.dataset.role === activeRole) {
+          b.classList.remove('bg-white', 'text-gray-700', 'border-gray-300');
+          b.classList.add('bg-gray-900', 'text-white', 'border-gray-900');
+        } else {
+          b.classList.remove('bg-gray-900', 'text-white', 'border-gray-900');
+          b.classList.add('bg-white', 'text-gray-700', 'border-gray-300');
+        }
+      });
+      renderResults();
+    });
+
+    async function loadLeads() {
+      loading.classList.remove('hidden');
+      try {
+        const params = new URLSearchParams();
+        if (cityInput.value) params.append('city', cityInput.value);
+        if (areaInput.value) params.append('area', areaInput.value);
+        const url = '/leads' + (params.toString() ? '?' + params.toString() : '');
+        const res = await fetch(url);
+        const data = await res.json();
+        allLeads = data.results || [];
+        let subtitle = data.message || `${allLeads.length} leads loaded`;
+        if (data.new_count) {
+          subtitle += ` • ${data.new_count} new in last 24h`;
+        }
+        leadsSubtitle.textContent = subtitle;
+      } catch (e) {
+        message.textContent = 'Failed to load leads.';
+        message.classList.remove('hidden');
+      } finally {
+        loading.classList.add('hidden');
+        renderResults();
+      }
+    }
+
+    let debounce;
+    function debouncedLoad() {
+      clearTimeout(debounce);
+      debounce = setTimeout(loadLeads, 400);
+    }
+    cityInput.addEventListener('input', debouncedLoad);
+    areaInput.addEventListener('input', debouncedLoad);
+
+    loadLeads();
+  </script>
+</body>
+</html>
