@@ -29,7 +29,7 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h1 class="text-2xl font-bold text-gray-900 mb-2">🏥 Bangalore Medical Finder</h1>
       <p class="text-sm text-gray-500 mb-4">Internal team access only.</p>
-      <form id="loginForm" class="space-y-4" onsubmit="event.preventDefault(); return false;">
+      <form id="loginForm" class="space-y-4" onsubmit="event.preventDefault()">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Access password</label>
           <input id="passwordInput" type="password" required autocomplete="current-password" class="w-full rounded-lg border border-gray-300 bg-white py-3 px-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Enter team password" />
@@ -226,18 +226,7 @@
       `;
     }
 
-    function updateFilterCounts() {
-      const counts = {};
-      for (const r of lastResults) {
-        counts[r.type] = (counts[r.type] || 0) + 1;
-      }
-      document.querySelectorAll('.filter-chip').forEach(btn => {
-        const type = btn.dataset.type;
-        const count = type === 'all' ? lastResults.length : (counts[type] || 0);
-        const baseText = type === 'all' ? 'All' : `${typeEmoji[type] || '🏥'} ${typeLabel[type] || type}`;
-        btn.textContent = `${baseText} (${count})`;
-      });
-    }
+    function renderResults() {
       updateFilterCounts();
 
       const filtered = activeFilter === 'all'
