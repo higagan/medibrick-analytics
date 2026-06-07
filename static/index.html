@@ -328,6 +328,16 @@
           lastResults = data.results;
           try {
             renderResults();
+            // On mobile, scroll up just enough so the area selector + filter chips stay visible
+            if (window.innerWidth < 768) {
+              setTimeout(() => {
+                const controls = document.querySelector('#appShell > .bg-white');
+                if (controls) {
+                  const top = controls.getBoundingClientRect().top + window.scrollY - 16;
+                  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+                }
+              }, 100);
+            }
           } catch (renderErr) {
             console.error('Render error:', renderErr);
             message.textContent = 'Results loaded but display failed. Check console.';
