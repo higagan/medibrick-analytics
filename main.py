@@ -17,7 +17,7 @@ try:
 except ImportError:
     pass
 
-app = FastAPI(title="Bangalore Medical Finder")
+app = FastAPI(title="MediBrick Medical Facility Finder")
 
 app.add_middleware(
     CORSMiddleware,
