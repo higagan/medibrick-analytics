@@ -585,7 +585,7 @@ async def get_health_data():
     
     return {
         "status": latest.get("status", "unknown"),
-        "ssl_days": summary.get("ssl_days", 0),
+        "ssl_days": summary.get("ssl_days", 0),  # Use processed value from summary
         "security_headers": latest.get("security_headers", "unknown"),
         "response_time": latest.get("response_time", 0),
         "timestamp": latest.get("checked_at", datetime.utcnow().isoformat()),

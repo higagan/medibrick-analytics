@@ -173,9 +173,16 @@ async def get_analytics_summary() -> dict:
     
     latest_data = latest.data[0] if latest.data else {}
     
+    # Fix: ensure ssl_days is properly extracted
+    ssl_days_raw = latest_data.get("ssl_days", 0) if latest_data else 0
+    try:
+        ssl_days = int(ssl_days_raw) if ssl_days_raw else 0
+    except (ValueError, TypeError):
+        ssl_days = 0
+    
     return {
         "checks_today": checks_today,
         "downtime_7d": downtime_count,
         "latest": latest_data,
-        "ssl_days": latest_data.get("ssl_days", 0) if latest_data else 0,
+        "ssl_days": ssl_days,
     }
