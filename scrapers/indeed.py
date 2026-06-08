@@ -58,21 +58,34 @@ def _parse_card(card, base_url: str) -> dict | None:
     # the same attribute area.
     salary = None
     hiring_type = ""
+    type_label_re = re.compile(r"^(full[-\s]?time|part[-\s]?time|contract|temporary|permanent|internship|freelance|walk[-\s]?in|locum)(\s*\+\d+)?$", re.IGNORECASE)
+    currency_re = re.compile(r"[₹$€£]|lakh|per\s+(month|year|hour|week|day|shift|annum)", re.IGNORECASE)
+    has_digits = lambda s: any(c.isdigit() for c in s)
+
+    # Collect all attribute snippets, then classify each
     salary_el = card.select_one("[data-testid='attribute_snippet_testid'], .salary-snippet, .salaryText")
+    snippets = []
     if salary_el:
-        raw = salary_el.get_text(strip=True)
-        # Salary contains digits or a currency symbol
-        if any(c.isdigit() for c in raw) or any(s in raw for s in ["₹", "$", "€", "£", "Lakh", "Cr"]):
-            salary = raw
-        elif raw:
-            # Looks like a job-type label (Part-time, Full-time, etc.)
-            hiring_type = raw
-            # Indeed often shows both. Try a second snippet for actual salary.
-            for other in card.select("[data-testid='attribute_snippet_testid']"):
-                txt = other.get_text(strip=True)
-                if txt and txt != raw and (any(c.isdigit() for c in txt) or "₹" in txt):
-                    salary = txt
-                    break
+        snippets.append(salary_el.get_text(strip=True))
+    for extra in card.select("[data-testid='attribute_snippet_testid']"):
+        txt = extra.get_text(strip=True)
+        if txt and txt not in snippets:
+            snippets.append(txt)
+
+    for txt in snippets:
+        if not txt:
+            continue
+        if type_label_re.match(txt):
+            # It's a job-type label (possibly with "+N" shifts)
+            if not hiring_type:
+                hiring_type = txt
+        elif has_digits(txt) and (currency_re.search(txt) or len(txt) > 8):
+            # Real salary: contains digits AND currency symbol / "per X" / longer string
+            if not salary:
+                salary = txt
+        elif has_digits(txt) and not hiring_type and not txt.startswith("+"):
+            # Numeric-only thing - might be experience, prefer as hiring_type
+            hiring_type = txt
 
     # Date
     date_el = card.select_one("[data-testid='myJobsState'], .date, date")
@@ -108,21 +121,31 @@ async def _scrape_one_url(url: str) -> List[dict]:
     leads: List[dict] = []
     try:
         async with BrowserClient() as browser:
-            pages = await browser.fetch_all_pages(
-                url,
-                wait_selector=WAIT_SELECTOR,
-                next_button_selector="a[aria-label*='Next'], button[aria-label*='Next']",
-                max_pages=MAX_PAGES,
-            )
+            # Indeed paginates with &start=N. Fetch each page directly.
+            page_urls = [url] + [
+                f"{url}{'&' if '?' in url else '?'}start={i*10}"
+                for i in range(1, MAX_PAGES)
+            ]
+            for page_url in page_urls:
+                try:
+                    html = await browser.fetch_html(
+                        page_url,
+                        wait_selector=WAIT_SELECTOR,
+                        wait_ms=2000,
+                        timeout_ms=20000,
+                    )
+                    soup = BeautifulSoup(html, "html.parser")
+                    cards = soup.select(WAIT_SELECTOR)
+                    for card in cards:
+                        lead = _parse_card(card, base_url=url)
+                        if lead and is_target_city(lead["city"], lead["area"]):
+                            leads.append(lead)
+                except Exception as e:
+                    logger.warning(f"Indeed page {page_url}: {e}")
+                    continue
     except PlaywrightNotInstalledError as e:
         logger.error(f"Indeed scraper needs Playwright: {e}")
         return []
-    for html in pages:
-        soup = BeautifulSoup(html, "html.parser")
-        for card in soup.select(WAIT_SELECTOR):
-            lead = _parse_card(card, base_url=url)
-            if lead and is_target_city(lead["city"], lead["area"]):
-                leads.append(lead)
     return leads
 
 
