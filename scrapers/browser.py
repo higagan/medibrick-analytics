@@ -101,9 +101,9 @@ class BrowserClient:
     ) -> str:
         """Navigate, wait for selector, return final HTML. Retries once on HTTP/2 errors.
 
-        For Next.js / React SPAs, use wait_until='networkidle' which waits for
-        XHR/fetch to settle (that's when hydrated content actually appears).
-        Default wait_ms=6000 is enough buffer for client-side re-renders.
+        For Next.js / React SPAs, wait_until='domcontentloaded' + wait_ms is
+        the most reliable approach. 'load' and 'networkidle' both fire too
+        early (before hydration), leaving the DOM as a loading skeleton.
         """
         import asyncio
         last_err = None
@@ -111,14 +111,15 @@ class BrowserClient:
             page = await self.new_page()
             try:
                 try:
-                    # 'networkidle' is the most reliable for JS-heavy SPAs
-                    await page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+                    await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
                 except Exception as e:
                     if "ERR_HTTP2" in str(e) and attempt == 0:
                         logger.warning(f"HTTP/2 error on {url}, retrying with fresh context")
                         last_err = e
                         continue
                     raise
+                # Give the SPA time to hydrate
+                await page.wait_for_timeout(wait_ms)
                 if wait_selector:
                     try:
                         # state="attached" so we don't fail just because the element
@@ -126,8 +127,6 @@ class BrowserClient:
                         await page.wait_for_selector(wait_selector, state="attached", timeout=timeout_ms)
                     except Exception as e:
                         logger.warning(f"Selector {wait_selector!r} not found: {e}")
-                else:
-                    await page.wait_for_timeout(wait_ms)
                 return await page.content()
             finally:
                 await page.context.close()
