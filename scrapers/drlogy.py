@@ -59,17 +59,6 @@ def _parse_card_text(card_text: str, href: str) -> dict | None:
             salary = p
             break
 
-    # Date posted: 'Last Date: 27, Nov 2026' -> ISO date
-    date_posted = None
-    for i, p in enumerate(parts):
-        if p.lower().startswith("last date"):
-            # Next non-empty part is the date
-            date_str = p.split(":", 1)[1].strip() if ":" in p else ""
-            if not date_str and i + 1 < len(parts):
-                date_str = parts[i + 1]
-            date_posted = date_str
-            break
-
     # Hiring type
     hiring_type = ""
     for p in parts:
@@ -77,6 +66,9 @@ def _parse_card_text(card_text: str, href: str) -> dict | None:
         if "full time" in pl or "part time" in pl or "walk" in pl or "permanent" in pl:
             hiring_type = p
             break
+    # NOTE: DrLogy only exposes the application deadline ('Last Date: ...'),
+    # not the actual job-post date. We don't extract it as date_posted because
+    # the subtitle 'X posted in last 24h' would be misleading. Leave None.
     return {
         "title": title,
         "hospital": hospital,
@@ -84,7 +76,6 @@ def _parse_card_text(card_text: str, href: str) -> dict | None:
         "area": area,
         "salary": salary,
         "hiring_type": hiring_type,
-        "date_posted": date_posted,
     }
 
 
