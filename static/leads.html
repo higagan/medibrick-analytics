@@ -294,16 +294,18 @@
     }
 
     function populateDropdowns(leads) {
-      // Build a city -> Map(area -> count) from current leads. Counts in the
-      // area dropdown show users that small counts are real (e.g. "Girinagar
-      // (1)") instead of a filter bug.
+      // Build a city -> { count, Map(area -> count) } from current leads.
+      // Counts in the dropdowns show users that small counts are real
+      // (e.g. "Girinagar (1)") instead of a filter bug. The city count
+      // is the TOTAL leads for that city, not just those with an area.
       const byCity = new Map();
       for (const l of leads) {
         const c = (l.city || '').trim();
         if (!c) continue;
-        if (!byCity.has(c)) byCity.set(c, new Map());
+        if (!byCity.has(c)) byCity.set(c, { count: 0, areas: new Map() });
+        byCity.get(c).count += 1;
         const a = (l.area || '').trim();
-        if (a) byCity.get(c).set(a, (byCity.get(c).get(a) || 0) + 1);
+        if (a) byCity.get(c).areas.set(a, (byCity.get(c).areas.get(a) || 0) + 1);
       }
       // Save current selections
       const curCity = cityInput.value;
@@ -312,10 +314,9 @@
       cityInput.innerHTML = '<option value="">All cities</option>';
       const cities = [...byCity.keys()].sort();
       for (const c of cities) {
-        const total = [...byCity.get(c).values()].reduce((s, n) => s + n, 0);
         const opt = document.createElement('option');
         opt.value = c;
-        opt.textContent = `${c} (${total})`;
+        opt.textContent = `${c} (${byCity.get(c).count})`;
         cityInput.appendChild(opt);
       }
       // Restore city selection if still valid
@@ -323,8 +324,8 @@
       // Rebuild area dropdown for current city, sorted by count desc
       function rebuildAreas() {
         const sel = cityInput.value;
-        const cityMap = sel && byCity.has(sel) ? byCity.get(sel) : new Map();
-        const areas = [...cityMap.entries()]
+        const cityData = sel && byCity.has(sel) ? byCity.get(sel) : { areas: new Map() };
+        const areas = [...cityData.areas.entries()]
           .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
         areaInput.innerHTML = '<option value="">All areas</option>';
         for (const [a, n] of areas) {
