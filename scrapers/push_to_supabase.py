@@ -21,6 +21,16 @@ try:
 except ImportError:
     _HAS_SUPABASE = False
 
+# LLM enrichment: classify role/department/hospital via local Ollama.
+# Defaults to medgemma:4b (Google's medical-tuned Gemma 3). Override via
+# OLLAMA_MODEL env var. Skips silently if Ollama is offline or model not
+# loaded.
+try:
+    from .llm_enrich import enrich_batch
+    _HAS_LLM = True
+except ImportError:
+    _HAS_LLM = False
+
 
 BATCH_SIZE = 50
 
@@ -46,6 +56,11 @@ def push_leads(leads: List[dict]) -> Dict[str, int]:
     """
     if not leads:
         return {"inserted": 0, "updated": 0, "skipped": 0, "errors": 0}
+
+    # NEW: enrich with local LLM (medgemma:4b via Ollama) before pushing.
+    # Skips silently if Ollama is offline or model not loaded.
+    if _HAS_LLM:
+        leads = enrich_batch(leads)
 
     client = _get_client()
     if client is None:

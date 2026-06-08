@@ -359,6 +359,16 @@
         console.log('Uptime data not available');
       }
     }
+
+    // Auto-refresh every 30 seconds
+    setInterval(async () => {
+      document.getElementById('lastUpdated').textContent = 'Refreshing...';
+      await loadHealthData();
+      await loadUptimeData();
+      document.getElementById('lastUpdated').textContent = 'Updated: ' + new Date().toLocaleString('en-IN', {
+        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+      });
+    }, 30000);
   </script>
 </body>
 </html>

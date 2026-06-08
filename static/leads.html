@@ -84,6 +84,13 @@
     let activeRole = 'all';
 
     function roleMatches(role, lead) {
+      // Prefer the LLM's classification when present (more accurate than regex)
+      const llmRole = lead.llm_data && lead.llm_data.role;
+      if (llmRole) {
+        if (role === 'all') return true;
+        return llmRole === role;
+      }
+      // Fallback to regex for leads not yet enriched
       const haystack = ((lead.role || '') + ' ' + (lead.department || '')).toLowerCase();
       if (role === 'all') return true;
       if (role === 'doctor') return /\b(doctor|duty doctor|consultant|physician|specialist|surgeon|anesthetist|pathologist|radiologist|pediatrician|gynecologist|orthopedic|cardiologist|neurologist|dermatologist|ophthalmologist|mbbs|md |dnb|dm |mch)\b/.test(haystack);
@@ -151,12 +158,19 @@
     }
 
     function renderCard(lead) {
-      const hospital = escapeHtml(lead.hospital || 'Unknown Hospital');
+      const hospitalRaw = (lead.hospital || 'Unknown Hospital').trim();
+      const canonical = (lead.llm_data && lead.llm_data.hospital_canonical) || '';
+      const showCanonical = canonical && canonical.toLowerCase() !== hospitalRaw.toLowerCase();
+      const hospital = showCanonical
+        ? `${escapeHtml(canonical)} <span class="text-xs text-gray-400 font-normal">(${escapeHtml(hospitalRaw)})</span>`
+        : escapeHtml(hospitalRaw);
       const role = escapeHtml(lead.role || 'Medical Staff');
-      // Hide the "General" default department — only show real departments
-      const deptRaw = (lead.department || '').trim();
-      const showDept = deptRaw && deptRaw.toLowerCase() !== 'general';
+      // Prefer LLM-classified department; fall back to scraper's raw value.
+      const llmDept = (lead.llm_data && lead.llm_data.department) || '';
+      const deptRaw = (llmDept || (lead.department || '')).trim();
+      const showDept = deptRaw && deptRaw.toLowerCase() !== 'general' && deptRaw.toLowerCase() !== 'other';
       const dept = escapeHtml(deptRaw);
+      const llmSummary = (lead.llm_data && lead.llm_data.summary) || '';
       const city = escapeHtml(lead.city || '');
       const area = escapeHtml(lead.area || '');
       const salary = escapeHtml(lead.salary || '');
@@ -181,6 +195,7 @@
           </div>
           ${location ? `<p class="text-sm text-gray-600">📍 ${location}</p>` : ''}
           ${salary ? `<p class="text-sm text-green-700 font-semibold mt-1">💰 ${salary}</p>` : ''}
+          ${llmSummary ? `<p class="text-xs text-gray-500 italic mt-1">${escapeHtml(llmSummary)}</p>` : ''}
           ${date ? `<p class="text-xs text-gray-400 mt-2">${date}</p>` : ''}
         </div>
       `;
