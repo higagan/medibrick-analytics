@@ -113,3 +113,69 @@ async def count_new_leads() -> int:
         .gte("created_at", cutoff) \
         .execute()
     return response.count or 0
+
+
+# ---------------------------------------------------------------------------
+# Analytics functions (store monitoring data in Supabase)
+# ---------------------------------------------------------------------------
+
+async def save_analytics_check(data: dict):
+    """Save a monitoring check result to Supabase."""
+    if not supabase:
+        return
+    data["checked_at"] = datetime.utcnow().isoformat()
+    supabase.table("analytics_checks").insert(data).execute()
+
+
+async def get_latest_analytics(days: int = 7) -> List[dict]:
+    """Get analytics checks from last N days."""
+    if not supabase:
+        return []
+    cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    response = supabase.table("analytics_checks") \
+        .select("*") \
+        .gte("checked_at", cutoff) \
+        .order("checked_at", desc=True) \
+        .execute()
+    return response.data or []
+
+
+async def get_analytics_summary() -> dict:
+    """Get summary stats for dashboard."""
+    if not supabase:
+        return {}
+    
+    # Last 24 hours
+    day_ago = (datetime.utcnow() - timedelta(hours=24)).isoformat()
+    week_ago = (datetime.utcnow() - timedelta(days=7)).isoformat()
+    
+    # Count checks today
+    today_response = supabase.table("analytics_checks") \
+        .select("id", count="exact") \
+        .gte("checked_at", day_ago) \
+        .execute()
+    checks_today = today_response.count or 0
+    
+    # Count downtime incidents (last 7 days)
+    downtime_response = supabase.table("analytics_checks") \
+        .select("id", count="exact") \
+        .eq("status", "down") \
+        .gte("checked_at", week_ago) \
+        .execute()
+    downtime_count = downtime_response.count or 0
+    
+    # Latest check
+    latest = supabase.table("analytics_checks") \
+        .select("*") \
+        .order("checked_at", desc=True) \
+        .limit(1) \
+        .execute()
+    
+    latest_data = latest.data[0] if latest.data else {}
+    
+    return {
+        "checks_today": checks_today,
+        "downtime_7d": downtime_count,
+        "latest": latest_data,
+        "ssl_days": latest_data.get("ssl_days", 0) if latest_data else 0,
+    }

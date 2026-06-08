@@ -496,56 +496,48 @@ async def get_leads(
 
 
 # ---------------------------------------------------------------------------
-# Analytics endpoints
+# Analytics endpoints (use Supabase)
 # ---------------------------------------------------------------------------
-import json
-from datetime import datetime, timedelta
+from db import save_analytics_check, get_latest_analytics, get_analytics_summary
 
-ANALYTICS_LOG_DIR = "/Users/gagandeep/.openclaw/workspace/plausible/logs"
-
-def load_analytics_logs(days: int = 7):
-    """Load monitoring logs from the last N days."""
-    logs = []
-    for i in range(days):
-        date = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
-        log_file = os.path.join(ANALYTICS_LOG_DIR, f"analytics_{date}.json")
-        if os.path.exists(log_file):
-            with open(log_file) as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        try:
-                            logs.append(json.loads(line))
-                        except json.JSONDecodeError:
-                            pass
-    return logs
+@app.post("/api/analytics/check")
+async def record_analytics_check(request: Request):
+    """Receive monitoring data from local scripts."""
+    try:
+        data = await request.json()
+        await save_analytics_check(data)
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.get("/api/analytics/health")
 async def get_health_data():
-    """Return latest health check data."""
-    logs = load_analytics_logs(days=1)
-    if not logs:
+    """Return latest health check data from Supabase."""
+    summary = await get_analytics_summary()
+    latest = summary.get("latest", {})
+    
+    if not latest:
         return {
             "status": "unknown",
             "ssl_days": 0,
             "security_headers": "unknown",
             "response_time": 0,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.utcnow().isoformat(),
         }
     
-    latest = logs[-1]
     return {
         "status": latest.get("status", "unknown"),
-        "ssl_days": 50 if latest.get("ssl") == "ok" else 0,
+        "ssl_days": summary.get("ssl_days", 0),
         "security_headers": latest.get("security_headers", "unknown"),
         "response_time": latest.get("response_time", 0),
-        "timestamp": latest.get("timestamp", datetime.now().isoformat()),
+        "timestamp": latest.get("checked_at", datetime.utcnow().isoformat()),
     }
 
 @app.get("/api/analytics/uptime")
 async def get_uptime_data():
-    """Return uptime stats for the last 7 days."""
-    logs = load_analytics_logs(days=7)
+    """Return uptime stats for the last 7 days from Supabase."""
+    logs = await get_latest_analytics(days=7)
+    summary = await get_analytics_summary()
     
     if not logs:
         return {
@@ -560,12 +552,8 @@ async def get_uptime_data():
     down_checks = sum(1 for log in logs if log.get("status") == "down")
     uptime_percent = round(((total_checks - down_checks) / total_checks) * 100, 1) if total_checks > 0 else 100
     
-    # Today's checks
-    today = datetime.now().strftime("%Y-%m-%d")
-    checks_today = sum(1 for log in logs if log.get("timestamp", "").startswith(today))
-    
     # Response times (last 24 points for chart)
-    response_times = [log.get("response_time", 0) * 1000 for log in logs[-24:]]
+    response_times = [log.get("response_time", 0) * 1000 for log in logs[:24]]
     
     # Incidents
     incidents = []
@@ -573,19 +561,19 @@ async def get_uptime_data():
         if log.get("status") == "down":
             incidents.append({
                 "type": "Site Down",
-                "time": log.get("timestamp", datetime.now().isoformat()),
+                "time": log.get("checked_at", datetime.utcnow().isoformat()),
             })
         elif log.get("content") == "suspicious":
             incidents.append({
                 "type": "Content Issue",
-                "time": log.get("timestamp", datetime.now().isoformat()),
+                "time": log.get("checked_at", datetime.utcnow().isoformat()),
             })
     
     return {
         "uptime_percent": uptime_percent,
-        "checks_today": checks_today,
+        "checks_today": summary.get("checks_today", 0),
         "response_times": response_times,
-        "incidents": incidents[-5:],  # Last 5 incidents
+        "incidents": incidents[:5],  # Last 5 incidents
     }
 
 
