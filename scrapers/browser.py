@@ -96,17 +96,23 @@ class BrowserClient:
         url: str,
         *,
         wait_selector: Optional[str] = None,
-        wait_ms: int = 2000,
+        wait_ms: int = 6000,
         timeout_ms: int = 30000,
     ) -> str:
-        """Navigate, wait for selector, return final HTML. Retries once on HTTP/2 errors."""
+        """Navigate, wait for selector, return final HTML. Retries once on HTTP/2 errors.
+
+        For Next.js / React SPAs, use wait_until='networkidle' which waits for
+        XHR/fetch to settle (that's when hydrated content actually appears).
+        Default wait_ms=6000 is enough buffer for client-side re-renders.
+        """
         import asyncio
         last_err = None
         for attempt in range(2):
             page = await self.new_page()
             try:
                 try:
-                    await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+                    # 'networkidle' is the most reliable for JS-heavy SPAs
+                    await page.goto(url, wait_until="networkidle", timeout=timeout_ms)
                 except Exception as e:
                     if "ERR_HTTP2" in str(e) and attempt == 0:
                         logger.warning(f"HTTP/2 error on {url}, retrying with fresh context")
@@ -115,7 +121,9 @@ class BrowserClient:
                     raise
                 if wait_selector:
                     try:
-                        await page.wait_for_selector(wait_selector, timeout=timeout_ms)
+                        # state="attached" so we don't fail just because the element
+                        # is below the fold / off-screen.
+                        await page.wait_for_selector(wait_selector, state="attached", timeout=timeout_ms)
                     except Exception as e:
                         logger.warning(f"Selector {wait_selector!r} not found: {e}")
                 else:
@@ -132,7 +140,7 @@ class BrowserClient:
         wait_selector: str,
         next_button_selector: Optional[str] = None,
         max_pages: int = 5,
-        wait_ms: int = 2000,
+        wait_ms: int = 6000,
     ) -> List[str]:
         """
         Fetch multiple pages by clicking a 'next' button (if provided) or scrolling.
@@ -141,10 +149,10 @@ class BrowserClient:
         page = await self.new_page()
         pages: List[str] = []
         try:
-            await page.goto(url, wait_until="domcontentloaded")
+            await page.goto(url, wait_until="load")
             for i in range(max_pages):
                 try:
-                    await page.wait_for_selector(wait_selector, timeout=15000)
+                    await page.wait_for_selector(wait_selector, state="attached", timeout=15000)
                 except Exception as e:
                     logger.warning(f"Page {i+1}: selector not found: {e}")
                 await page.wait_for_timeout(wait_ms)
@@ -157,7 +165,7 @@ class BrowserClient:
                     if await btn.count() == 0:
                         break
                     await btn.click()
-                    await page.wait_for_load_state("domcontentloaded")
+                    await page.wait_for_load_state("load")
                 except Exception:
                     break
             return pages
