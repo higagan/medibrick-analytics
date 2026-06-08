@@ -48,19 +48,33 @@ def _parse_card_text(card_text: str, href: str) -> dict | None:
     if m:
         city_raw = m.group(1).replace("-", " ").title()
     city, area = split_city_area(city_raw)
-    # Salary is usually "Not disclosed" or a number
+
+    # Salary: 'Not disclosed' is a valid value — show it. Real salaries have ₹ or L/Cr/K
     salary = None
     for p in parts:
+        if p.lower() == "not disclosed":
+            salary = "Not disclosed"
+            continue
         if re.search(r"\d+[,.]?\d*\s*(L|lakh|Lac|Cr|K)", p, re.IGNORECASE) or "₹" in p:
             salary = p
             break
-        if p.lower() == "not disclosed":
-            continue
-    # Type
+
+    # Date posted: 'Last Date: 27, Nov 2026' -> ISO date
+    date_posted = None
+    for i, p in enumerate(parts):
+        if p.lower().startswith("last date"):
+            # Next non-empty part is the date
+            date_str = p.split(":", 1)[1].strip() if ":" in p else ""
+            if not date_str and i + 1 < len(parts):
+                date_str = parts[i + 1]
+            date_posted = date_str
+            break
+
+    # Hiring type
     hiring_type = ""
     for p in parts:
         pl = p.lower()
-        if "full time" in pl or "part time" in pl or "walk" in pl:
+        if "full time" in pl or "part time" in pl or "walk" in pl or "permanent" in pl:
             hiring_type = p
             break
     return {
@@ -70,6 +84,7 @@ def _parse_card_text(card_text: str, href: str) -> dict | None:
         "area": area,
         "salary": salary,
         "hiring_type": hiring_type,
+        "date_posted": date_posted,
     }
 
 

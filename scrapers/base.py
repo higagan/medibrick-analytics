@@ -122,6 +122,8 @@ def normalize_date(date_str: Optional[str]) -> Optional[str]:
         "%d %B %Y",
         "%b %d, %Y",
         "%B %d, %Y",
+        "%d, %b %Y",        # '27, Nov 2026' (DrLogy)
+        "%d, %B %Y",        # '27, November 2026'
         "%d/%m/%Y",
         "%m/%d/%Y",
     ):
