@@ -9,7 +9,8 @@ from pydantic import BaseModel
 import httpx
 from typing import List, Optional
 
-from db import get_cached_results, merge_and_save_results, list_leads, create_lead, count_new_leads
+from db import (get_cached_results, merge_and_save_results, list_leads, create_lead, count_new_leads,
+    save_analytics_check, get_latest_analytics, get_analytics_summary)
 
 # Load env vars
 try:
@@ -498,7 +499,6 @@ async def get_leads(
 # ---------------------------------------------------------------------------
 # Analytics endpoints (use Supabase)
 # ---------------------------------------------------------------------------
-from db import save_analytics_check, get_latest_analytics, get_analytics_summary
 
 @app.post("/api/analytics/check")
 async def record_analytics_check(request: Request):
