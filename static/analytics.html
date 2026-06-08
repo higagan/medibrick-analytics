@@ -2,20 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MediBrick Analytics</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 88 L50 88 C25 70 8 50 8 32 C8 16 20 6 32 6 C40 6 46 10 50 16 C54 10 60 6 68 6 C80 6 92 16 92 32 C92 50 75 70 50 88 Z' fill='%23dc2626'/><text x='50' y='58' font-family='Arial,sans-serif' font-size='44' font-weight='900' fill='white' text-anchor='middle'>M</text></svg>" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    .card { @apply bg-white rounded-xl shadow-sm border border-gray-200 p-4; }
-    .stat-value { @apply text-3xl font-bold text-gray-900; }
-    .stat-label { @apply text-xs font-medium text-gray-500 uppercase tracking-wide mt-1; }
-    .trend-up { @apply text-green-600; }
-    .trend-down { @apply text-red-600; }
-    .trend-flat { @apply text-gray-500; }
     .skeleton { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
     @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    .metric-card { @apply bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col; }
+    .metric-card { background: white; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; padding: 1rem; display: flex; flex-direction: column; }
+    .status-ok { color: #16a34a; }
+    .status-warn { color: #ca8a04; }
+    .status-error { color: #dc2626; }
+    .section-hidden { display: none; }
   </style>
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen">
@@ -37,17 +35,17 @@
       </div>
     </div>
 
-    <!-- Navigation Menu -->
+    <!-- Navigation Tabs (mobile scrollable) -->
     <div class="sticky top-0 z-40 bg-gray-50/95 backdrop-blur-sm py-2 mb-4 -mx-4 px-4 border-b border-gray-200">
-      <div class="flex gap-2 overflow-x-auto pb-2">
-        <button onclick="showSection('overview')" id="nav-overview" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white whitespace-nowrap">Overview</button>
-        <button onclick="showSection('search')" id="nav-search" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium bg-white text-gray-700 border border-gray-300 whitespace-nowrap">Search Console</button>
-        <button onclick="showSection('security')" id="nav-security" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium bg-white text-gray-700 border border-gray-300 whitespace-nowrap">Security</button>
-        <button onclick="showSection('uptime')" id="nav-uptime" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium bg-white text-gray-700 border border-gray-300 whitespace-nowrap">Uptime</button>
+      <div class="flex gap-2 overflow-x-auto pb-2" id="navTabs">
+        <button onclick="showTab('overview')" data-tab="overview" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-900 text-white whitespace-nowrap">Overview</button>
+        <button onclick="showTab('search')" data-tab="search" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-white text-gray-700 border border-gray-300 whitespace-nowrap">Search Console</button>
+        <button onclick="showTab('security')" data-tab="security" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-white text-gray-700 border border-gray-300 whitespace-nowrap">Security</button>
+        <button onclick="showTab('uptime')" data-tab="uptime" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-white text-gray-700 border border-gray-300 whitespace-nowrap">Uptime</button>
       </div>
     </div>
 
-    <!-- Loading State -->
+    <!-- Loading -->
     <div id="loading" class="mb-6">
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <div class="skeleton h-6 w-3/4 rounded mb-3"></div>
@@ -56,37 +54,34 @@
       </div>
     </div>
 
-    <!-- Message -->
-    <div id="message" class="hidden mb-6 text-center text-gray-500 text-base py-8"></div>
-
-    <!-- OVERVIEW SECTION -->
-    <div id="section-overview" class="section space-y-4">
+    <!-- ========== OVERVIEW TAB ========== -->
+    <div id="tab-overview" class="tab-content space-y-4">
       <!-- Key Metrics Grid -->
       <div class="grid grid-cols-2 gap-3">
         <div class="metric-card">
-          <span id="metric-visitors" class="stat-value">--</span>
-          <span class="stat-label">Visitors (7d)</span>
-          <span id="trend-visitors" class="text-xs mt-1">--</span>
+          <span id="metric-visitors" class="text-3xl font-bold text-gray-900">--</span>
+          <span class="text-xs font-medium text-gray-500 uppercase tracking-wide mt-1">Visitors (7d)</span>
+          <span id="trend-visitors" class="text-xs mt-1 text-gray-500">--</span>
         </div>
         <div class="metric-card">
-          <span id="metric-pageviews" class="stat-value">--</span>
-          <span class="stat-label">Pageviews (7d)</span>
-          <span id="trend-pageviews" class="text-xs mt-1">--</span>
+          <span id="metric-pageviews" class="text-3xl font-bold text-gray-900">--</span>
+          <span class="text-xs font-medium text-gray-500 uppercase tracking-wide mt-1">Pageviews (7d)</span>
+          <span id="trend-pageviews" class="text-xs mt-1 text-gray-500">--</span>
         </div>
         <div class="metric-card">
-          <span id="metric-bounce" class="stat-value">--</span>
-          <span class="stat-label">Bounce Rate</span>
-          <span id="trend-bounce" class="text-xs mt-1">--</span>
+          <span id="metric-bounce" class="text-3xl font-bold text-gray-900">--</span>
+          <span class="text-xs font-medium text-gray-500 uppercase tracking-wide mt-1">Bounce Rate</span>
+          <span id="trend-bounce" class="text-xs mt-1 text-gray-500">--</span>
         </div>
         <div class="metric-card">
-          <span id="metric-avg-time" class="stat-value">--</span>
-          <span class="stat-label">Avg Session</span>
-          <span id="trend-avg-time" class="text-xs mt-1">--</span>
+          <span id="metric-avg-time" class="text-3xl font-bold text-gray-900">--</span>
+          <span class="text-xs font-medium text-gray-500 uppercase tracking-wide mt-1">Avg Session</span>
+          <span id="trend-avg-time" class="text-xs mt-1 text-gray-500">--</span>
         </div>
       </div>
 
-      <!-- Site Health Summary -->
-      <div class="card">
+      <!-- Site Health -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <h2 class="text-lg font-bold text-gray-900 mb-3">🏥 Site Health</h2>
         <div id="health-status" class="space-y-2">
           <div class="flex items-center justify-between py-2 border-b border-gray-100">
@@ -107,23 +102,14 @@
           </div>
         </div>
       </div>
-
-      <!-- Quick Stats -->
-      <div class="card">
-        <h2 class="text-lg font-bold text-gray-900 mb-3">📈 Quick Stats</h2>
-        <div id="quick-stats" class="space-y-3">
-          <p class="text-sm text-gray-500">Loading data from Search Console...</p>
-        </div>
-      </div>
     </div>
 
-    <!-- SEARCH CONSOLE SECTION -->
-    <div id="section-search" class="section hidden space-y-4">
-      <div class="card">
+    <!-- ========== SEARCH CONSOLE TAB ========== -->
+    <div id="tab-search" class="tab-content section-hidden space-y-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <h2 class="text-lg font-bold text-gray-900 mb-1">🔍 Google Search Console</h2>
         <p class="text-xs text-gray-500 mb-3">Data from search.google.com</p>
-        
-        <!-- Search Performance -->
+
         <div class="mb-4">
           <h3 class="text-sm font-semibold text-gray-700 mb-2">Search Performance (28 days)</h3>
           <div class="grid grid-cols-3 gap-2 mb-3">
@@ -140,18 +126,16 @@
               <span class="text-xs text-gray-500 block">CTR</span>
             </div>
           </div>
-          
-          <!-- Top Queries -->
+
           <h3 class="text-sm font-semibold text-gray-700 mb-2">Top Search Queries</h3>
           <div id="top-queries" class="space-y-2">
             <p class="text-sm text-gray-500">Connect Google Search Console API to see data</p>
           </div>
         </div>
 
-        <!-- Index Status -->
         <div class="border-t border-gray-200 pt-3">
           <h3 class="text-sm font-semibold text-gray-700 mb-2">📄 Indexing Status</h3>
-          <div id="index-status" class="space-y-2">
+          <div class="space-y-2">
             <div class="flex items-center justify-between py-1">
               <span class="text-sm text-gray-600">Indexed pages</span>
               <span id="indexed-pages" class="text-sm font-medium">--</span>
@@ -168,7 +152,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <h2 class="text-lg font-bold text-gray-900 mb-2">🔗 Manual Check</h2>
         <p class="text-sm text-gray-600 mb-3">For detailed analytics, visit:</p>
         <a href="https://search.google.com/search-console?resource_id=https%3A%2F%2Fmedibrick.com" target="_blank" rel="noopener" class="block w-full bg-blue-600 hover:bg-blue-700 text-white text-center font-semibold py-3 px-4 rounded-lg text-sm transition-colors">
@@ -177,9 +161,9 @@
       </div>
     </div>
 
-    <!-- SECURITY SECTION -->
-    <div id="section-security" class="section hidden space-y-4">
-      <div class="card">
+    <!-- ========== SECURITY TAB ========== -->
+    <div id="tab-security" class="tab-content section-hidden space-y-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <h2 class="text-lg font-bold text-gray-900 mb-1">🛡️ Security Monitor</h2>
         <p class="text-xs text-gray-500 mb-3">Last check: <span id="security-last-check">--</span></p>
 
@@ -201,9 +185,9 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <h2 class="text-lg font-bold text-gray-900 mb-2">⚠️ Vulnerabilities</h2>
-        <div id="vulnerabilities" class="space-y-2">
+        <div class="space-y-2">
           <div class="flex items-center justify-between py-2 border-b border-gray-100">
             <span class="text-sm text-gray-700">Content Security Policy</span>
             <span id="csp-status" class="text-xs font-medium px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">Missing</span>
@@ -220,13 +204,12 @@
       </div>
     </div>
 
-    <!-- UPTIME SECTION -->
-    <div id="section-uptime" class="section hidden space-y-4">
-      <div class="card">
+    <!-- ========== UPTIME TAB ========== -->
+    <div id="tab-uptime" class="tab-content section-hidden space-y-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <h2 class="text-lg font-bold text-gray-900 mb-1">📡 Uptime Monitor</h2>
         <p class="text-xs text-gray-500 mb-3">Checks every 30 minutes</p>
 
-        <!-- Uptime Summary -->
         <div class="grid grid-cols-2 gap-3 mb-4">
           <div class="bg-green-50 rounded-lg p-3 text-center border border-green-200">
             <span id="uptime-percent" class="text-2xl font-bold text-green-700">--</span>
@@ -238,13 +221,11 @@
           </div>
         </div>
 
-        <!-- Response Time Chart -->
         <h3 class="text-sm font-semibold text-gray-700 mb-2">Response Time (ms)</h3>
         <div id="response-chart" class="bg-gray-50 rounded-lg p-3 h-32 flex items-end justify-around gap-1">
           <p class="text-sm text-gray-500 w-full text-center">Loading chart data...</p>
         </div>
 
-        <!-- Recent Incidents -->
         <div class="border-t border-gray-200 mt-3 pt-3">
           <h3 class="text-sm font-semibold text-gray-700 mb-2">Recent Incidents</h3>
           <div id="incidents" class="space-y-2">
@@ -256,24 +237,36 @@
   </div>
 
   <script>
-    // Navigation
-    function showSection(section) {
-      document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
-      document.getElementById('section-' + section).classList.remove('hidden');
-      document.querySelectorAll('.nav-btn').forEach(b => {
-        b.classList.remove('bg-blue-600', 'text-white');
-        b.classList.add('bg-white', 'text-gray-700', 'border', 'border-gray-300');
+    // Tab navigation
+    function showTab(tabName) {
+      // Hide all tabs
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('section-hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-gray-900', 'text-white');
+        btn.classList.add('bg-white', 'text-gray-700', 'border', 'border-gray-300');
       });
-      document.getElementById('nav-' + section).classList.remove('bg-white', 'text-gray-700', 'border', 'border-gray-300');
-      document.getElementById('nav-' + section).classList.add('bg-blue-600', 'text-white');
+
+      // Show selected tab
+      document.getElementById('tab-' + tabName).classList.remove('section-hidden');
+      const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+      activeBtn.classList.remove('bg-white', 'text-gray-700', 'border', 'border-gray-300');
+      activeBtn.classList.add('bg-gray-900', 'text-white');
+
+      // Save preference
+      localStorage.setItem('analytics-tab', tabName);
     }
 
     // Load data on page load
     document.addEventListener('DOMContentLoaded', async () => {
-      document.getElementById('lastUpdated').textContent = 'Updated: ' + new Date().toLocaleString('en-IN', { 
-        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+      document.getElementById('lastUpdated').textContent = 'Updated: ' + new Date().toLocaleString('en-IN', {
+        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
       });
-      
+
+      // Restore last tab
+      const lastTab = localStorage.getItem('analytics-tab') || 'overview';
+      showTab(lastTab);
+
+      // Load data
       await loadHealthData();
       await loadUptimeData();
       document.getElementById('loading').classList.add('hidden');
@@ -284,31 +277,45 @@
         const response = await fetch('/api/analytics/health');
         if (!response.ok) throw new Error('Failed to load');
         const data = await response.json();
-        
-        document.getElementById('health-site').innerHTML = data.status === 'up' 
-          ? '<span class="text-green-600">✅ Up</span>' 
-          : '<span class="text-red-600">🚨 Down</span>';
-        document.getElementById('health-ssl').innerHTML = data.ssl_days > 7 
-          ? `<span class="text-green-600">✅ ${data.ssl_days} days</span>` 
-          : `<span class="text-red-600">⚠️ ${data.ssl_days} days</span>`;
-        document.getElementById('health-headers').innerHTML = data.security_headers === 'ok' 
-          ? '<span class="text-green-600">✅ OK</span>' 
-          : '<span class="text-yellow-600">⚠️ Partial</span>';
+
+        const siteEl = document.getElementById('health-site');
+        if (data.status === 'up') {
+          siteEl.innerHTML = '<span class="status-ok">✅ Up</span>';
+        } else if (data.status === 'down') {
+          siteEl.innerHTML = '<span class="status-error">🚨 Down</span>';
+        } else {
+          siteEl.textContent = '--';
+        }
+
+        const sslEl = document.getElementById('health-ssl');
+        if (data.ssl_days > 30) {
+          sslEl.innerHTML = `<span class="status-ok">✅ ${data.ssl_days} days</span>`;
+        } else if (data.ssl_days > 7) {
+          sslEl.innerHTML = `<span class="status-warn">⚠️ ${data.ssl_days} days</span>`;
+        } else {
+          sslEl.innerHTML = `<span class="status-error">🚨 ${data.ssl_days} days</span>`;
+        }
+
+        const headersEl = document.getElementById('health-headers');
+        if (data.security_headers === 'ok') {
+          headersEl.innerHTML = '<span class="status-ok">✅ OK</span>';
+        } else {
+          headersEl.innerHTML = '<span class="status-warn">⚠️ Partial</span>';
+        }
+
         document.getElementById('health-response').textContent = data.response_time + 's';
-        
         document.getElementById('security-last-check').textContent = new Date(data.timestamp).toLocaleString('en-IN');
         document.getElementById('ssl-days').textContent = data.ssl_days + ' days';
-        
+
+        // Update vulnerability badges
         if (data.security_headers === 'ok') {
           document.getElementById('csp-status').className = 'text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-800';
           document.getElementById('csp-status').textContent = 'Present';
+          document.getElementById('xfo-status').className = 'text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-800';
+          document.getElementById('xfo-status').textContent = 'Present';
         }
       } catch (e) {
-        console.log('Health data not available yet');
-        document.getElementById('health-site').innerHTML = '<span class="text-gray-500">--</span>';
-        document.getElementById('health-ssl').innerHTML = '<span class="text-gray-500">--</span>';
-        document.getElementById('health-headers').innerHTML = '<span class="text-gray-500">--</span>';
-        document.getElementById('health-response').textContent = '--';
+        console.log('Health data not available');
       }
     }
 
@@ -317,10 +324,10 @@
         const response = await fetch('/api/analytics/uptime');
         if (!response.ok) throw new Error('Failed to load');
         const data = await response.json();
-        
+
         document.getElementById('uptime-percent').textContent = data.uptime_percent + '%';
         document.getElementById('uptime-checks').textContent = data.checks_today;
-        
+
         // Render mini chart
         const chartEl = document.getElementById('response-chart');
         if (data.response_times && data.response_times.length > 0) {
@@ -334,7 +341,7 @@
             chartEl.appendChild(bar);
           });
         }
-        
+
         // Show incidents
         const incidentsEl = document.getElementById('incidents');
         if (data.incidents && data.incidents.length > 0) {
@@ -349,7 +356,7 @@
           `).join('');
         }
       } catch (e) {
-        console.log('Uptime data not available yet');
+        console.log('Uptime data not available');
       }
     }
   </script>
