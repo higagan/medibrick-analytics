@@ -45,8 +45,12 @@
         <button data-role="nurse" class="filter-chip px-3 py-1.5 rounded-full text-sm font-medium border border-gray-300 bg-white text-gray-700">💉 Nurse</button>
       </div>
       <div class="mt-3 grid grid-cols-2 gap-2">
-        <input id="cityInput" type="text" placeholder="City (e.g. Bengaluru)" class="rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm" />
-        <input id="areaInput" type="text" placeholder="Area (e.g. Sarjapur)" class="rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm" />
+        <select id="cityInput" class="rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm">
+          <option value="">All cities</option>
+        </select>
+        <select id="areaInput" class="rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm" disabled>
+          <option value="">All areas</option>
+        </select>
       </div>
     </div>
 
@@ -140,7 +144,10 @@
     function renderCard(lead) {
       const hospital = escapeHtml(lead.hospital || 'Unknown Hospital');
       const role = escapeHtml(lead.role || 'Medical Staff');
-      const dept = escapeHtml(lead.department || 'General');
+      // Hide the "General" default department — only show real departments
+      const deptRaw = (lead.department || '').trim();
+      const showDept = deptRaw && deptRaw.toLowerCase() !== 'general';
+      const dept = escapeHtml(deptRaw);
       const city = escapeHtml(lead.city || '');
       const area = escapeHtml(lead.area || '');
       const salary = escapeHtml(lead.salary || '');
@@ -161,19 +168,14 @@
           </div>
           <div class="flex items-center gap-2 mb-2 flex-wrap">
             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-indigo-100 text-indigo-800">${role}</span>
-            <span class="text-xs text-gray-500">${dept}</span>
+            ${showDept ? `<span class="text-xs text-gray-500">${dept}</span>` : ''}
           </div>
           ${location ? `<p class="text-sm text-gray-600">📍 ${location}</p>` : ''}
           ${salary ? `<p class="text-sm text-green-700 font-semibold mt-1">💰 ${salary}</p>` : ''}
           ${date ? `<p class="text-xs text-gray-500 mt-2">${date}</p>` : ''}
+          ${!date && !salary ? `<p class="text-xs text-gray-400 mt-2 italic">Posted recently</p>` : ''}
         </div>
       `;
-    }
-
-    function matchesText(lead, text) {
-      if (!text) return true;
-      const haystack = ((lead.city || '') + ' ' + (lead.area || '')).toLowerCase();
-      return haystack.includes(text.toLowerCase());
     }
 
     function renderResults() {
@@ -184,8 +186,15 @@
         return;
       }
 
-      const textFilter = (cityInput.value || '') + (areaInput.value ? ' ' + areaInput.value : '');
-      const filtered = allLeads.filter(l => roleMatches(activeRole, l) && matchesText(l, textFilter));
+      // Filter: exact match on selected city + area, plus role chip
+      const cityFilter = (cityInput.value || '').trim();
+      const areaFilter = (areaInput.value || '').trim();
+      const filtered = allLeads.filter(l => {
+        if (!roleMatches(activeRole, l)) return false;
+        if (cityFilter && (l.city || '').trim() !== cityFilter) return false;
+        if (areaFilter && (l.area || '').trim() !== areaFilter) return false;
+        return true;
+      });
 
       if (!filtered.length) {
         message.textContent = 'No leads match this filter.';
@@ -224,11 +233,24 @@
         const res = await fetch(url);
         const data = await res.json();
         allLeads = data.results || [];
-        let subtitle = data.message || `${allLeads.length} leads loaded`;
-        if (data.new_count) {
-          subtitle += ` • ${data.new_count} new in last 24h`;
+        // Count leads whose original job-post date is in the last 24h
+        // (not when we scraped them). Falls back to created_at if date_posted
+        // is missing so the count is always meaningful.
+        const now = Date.now();
+        const dayAgo = now - 24 * 60 * 60 * 1000;
+        const postedInLast24h = allLeads.filter(l => {
+          const ts = l.date_posted || l.created_at;
+          if (!ts) return false;
+          const t = new Date(ts).getTime();
+          return !isNaN(t) && t >= dayAgo;
+        }).length;
+        let subtitle = `Showing ${allLeads.length} lead${allLeads.length === 1 ? '' : 's'}`;
+        if (postedInLast24h > 0) {
+          subtitle += ` • ${postedInLast24h} posted in last 24h`;
         }
         leadsSubtitle.textContent = subtitle;
+        // Populate city/area dropdowns with distinct values from this data
+        populateDropdowns(allLeads);
       } catch (e) {
         message.textContent = 'Failed to load leads.';
         message.classList.remove('hidden');
@@ -238,13 +260,56 @@
       }
     }
 
+    function populateDropdowns(leads) {
+      // Build a city -> Set(areas) map from current leads
+      const byCity = new Map();
+      for (const l of leads) {
+        const c = (l.city || '').trim();
+        if (!c) continue;
+        if (!byCity.has(c)) byCity.set(c, new Set());
+        const a = (l.area || '').trim();
+        if (a) byCity.get(c).add(a);
+      }
+      // Save current selections
+      const curCity = cityInput.value;
+      const curArea = areaInput.value;
+      // Rebuild city dropdown
+      cityInput.innerHTML = '<option value="">All cities</option>';
+      const cities = [...byCity.keys()].sort();
+      for (const c of cities) {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        cityInput.appendChild(opt);
+      }
+      // Restore city selection if still valid
+      if (curCity && cities.includes(curCity)) cityInput.value = curCity;
+      // Rebuild area dropdown for current city
+      function rebuildAreas() {
+        const sel = cityInput.value;
+        const areas = sel && byCity.has(sel) ? [...byCity.get(sel)].sort() : [];
+        areaInput.innerHTML = '<option value="">All areas</option>';
+        for (const a of areas) {
+          const opt = document.createElement('option');
+          opt.value = a;
+          opt.textContent = a;
+          areaInput.appendChild(opt);
+        }
+        areaInput.disabled = areas.length === 0;
+        if (curArea && areas.includes(curArea)) areaInput.value = curArea;
+      }
+      rebuildAreas();
+      cityInput.onchange = () => { areaInput.value = ''; rebuildAreas(); debouncedRender(); };
+    }
+
     let debounce;
     function debouncedRender() {
       clearTimeout(debounce);
       debounce = setTimeout(renderResults, 150);
     }
-    cityInput.addEventListener('input', debouncedRender);
-    areaInput.addEventListener('input', debouncedRender);
+    // <select> elements fire 'change', not 'input'
+    cityInput.addEventListener('change', debouncedRender);
+    areaInput.addEventListener('change', debouncedRender);
 
     document.getElementById('refreshBtn').addEventListener('click', async () => {
       const btn = document.getElementById('refreshBtn');
