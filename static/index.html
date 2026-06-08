@@ -51,17 +51,22 @@
   <div id="appShell" class="hidden max-w-3xl mx-auto px-4 py-6">
     <!-- Header -->
     <div class="mb-6">
-      <div class="flex items-center gap-3">
-        <svg viewBox="0 0 100 100" class="w-10 h-10 flex-shrink-0" aria-label="MediBrick logo">
-          <path d="M50 88 L50 88 C25 70 8 50 8 32 C8 16 20 6 32 6 C40 6 46 10 50 16 C54 10 60 6 68 6 C80 6 92 16 92 32 C92 50 75 70 50 88 Z" fill="#dc2626"/>
-          <text x="50" y="58" font-family="Arial,sans-serif" font-size="44" font-weight="900" fill="white" text-anchor="middle">M</text>
-        </svg>
-        <h1 class="text-2xl font-bold text-gray-900">MediBrick Medical Facility Finder</h1>
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <svg viewBox="0 0 100 100" class="w-10 h-10 flex-shrink-0" aria-label="MediBrick logo">
+            <path d="M50 88 L50 88 C25 70 8 50 8 32 C8 16 20 6 32 6 C40 6 46 10 50 16 C54 10 60 6 68 6 C80 6 92 16 92 32 C92 50 75 70 50 88 Z" fill="#dc2626"/>
+            <text x="50" y="58" font-family="Arial,sans-serif" font-size="44" font-weight="900" fill="white" text-anchor="middle">M</text>
+          </svg>
+          <h1 class="text-2xl font-bold text-gray-900">MediBrick Medical Facility Finder</h1>
+        </div>
+        <a href="/analytics.html" class="text-sm text-blue-600 font-medium whitespace-nowrap">📊 Analytics →</a>
       </div>
       <p class="text-sm text-gray-500 mt-1">Find hospitals, clinics, AYUSH centers &amp; dentists near you.</p>
-      <a href="/leads.html" class="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-800 mt-2">
-        📋 View Leads →
-      </a>
+      <div class="flex gap-4 mt-2">
+        <a href="/leads.html" class="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-800">
+          📋 View Leads →
+        </a>
+      </div>
     </div>
 
     <!-- Controls -->

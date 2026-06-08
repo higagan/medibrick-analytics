@@ -495,4 +495,98 @@ async def get_leads(
     )
 
 
+# ---------------------------------------------------------------------------
+# Analytics endpoints
+# ---------------------------------------------------------------------------
+import json
+from datetime import datetime, timedelta
+
+ANALYTICS_LOG_DIR = "/Users/gagandeep/.openclaw/workspace/plausible/logs"
+
+def load_analytics_logs(days: int = 7):
+    """Load monitoring logs from the last N days."""
+    logs = []
+    for i in range(days):
+        date = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+        log_file = os.path.join(ANALYTICS_LOG_DIR, f"analytics_{date}.json")
+        if os.path.exists(log_file):
+            with open(log_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            logs.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            pass
+    return logs
+
+@app.get("/api/analytics/health")
+async def get_health_data():
+    """Return latest health check data."""
+    logs = load_analytics_logs(days=1)
+    if not logs:
+        return {
+            "status": "unknown",
+            "ssl_days": 0,
+            "security_headers": "unknown",
+            "response_time": 0,
+            "timestamp": datetime.now().isoformat(),
+        }
+    
+    latest = logs[-1]
+    return {
+        "status": latest.get("status", "unknown"),
+        "ssl_days": 50 if latest.get("ssl") == "ok" else 0,
+        "security_headers": latest.get("security_headers", "unknown"),
+        "response_time": latest.get("response_time", 0),
+        "timestamp": latest.get("timestamp", datetime.now().isoformat()),
+    }
+
+@app.get("/api/analytics/uptime")
+async def get_uptime_data():
+    """Return uptime stats for the last 7 days."""
+    logs = load_analytics_logs(days=7)
+    
+    if not logs:
+        return {
+            "uptime_percent": 100,
+            "checks_today": 0,
+            "response_times": [],
+            "incidents": [],
+        }
+    
+    # Calculate uptime percentage
+    total_checks = len(logs)
+    down_checks = sum(1 for log in logs if log.get("status") == "down")
+    uptime_percent = round(((total_checks - down_checks) / total_checks) * 100, 1) if total_checks > 0 else 100
+    
+    # Today's checks
+    today = datetime.now().strftime("%Y-%m-%d")
+    checks_today = sum(1 for log in logs if log.get("timestamp", "").startswith(today))
+    
+    # Response times (last 24 points for chart)
+    response_times = [log.get("response_time", 0) * 1000 for log in logs[-24:]]
+    
+    # Incidents
+    incidents = []
+    for log in logs:
+        if log.get("status") == "down":
+            incidents.append({
+                "type": "Site Down",
+                "time": log.get("timestamp", datetime.now().isoformat()),
+            })
+        elif log.get("content") == "suspicious":
+            incidents.append({
+                "type": "Content Issue",
+                "time": log.get("timestamp", datetime.now().isoformat()),
+            })
+    
+    return {
+        "uptime_percent": uptime_percent,
+        "checks_today": checks_today,
+        "response_times": response_times,
+        "incidents": incidents[-5:],  # Last 5 incidents
+    }
+
+
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
