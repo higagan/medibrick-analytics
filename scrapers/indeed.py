@@ -87,11 +87,9 @@ def _parse_card(card, base_url: str) -> dict | None:
             # Numeric-only thing - might be experience, prefer as hiring_type
             hiring_type = txt
 
-    # Date
-    date_el = card.select_one("[data-testid='myJobsState'], .date, date")
-    date_posted = date_el.get_text(strip=True) if date_el else None
-
-    # Job link
+    # Job link — grab jk from the card so the caller can pair with the
+    # JSON-embedded createDate/formattedRelativeTime (the DOM doesn't render
+    # the date; Indeed's frontend hydrates it from window.mosaic JSON).
     link_el = card.select_one("a[data-jk], h2.jobTitle a, a[href*='/viewjob']")
     href = link_el.get("href", "") if link_el else ""
     jk = link_el.get("data-jk", "") if link_el else ""
@@ -101,6 +99,8 @@ def _parse_card(card, base_url: str) -> dict | None:
 
     if not source_url:
         return None
+    # date_posted is filled in by _scrape_one_url using the JSON-embedded
+    # createDate/formattedRelativeTime, paired by card order.
     try:
         return make_lead(
             hospital=company,
@@ -110,11 +110,64 @@ def _parse_card(card, base_url: str) -> dict | None:
             area=area,
             salary=salary,
             hiring_type=hiring_type,
-            date_posted=date_posted,
+            date_posted=None,  # filled in later
             source_url=source_url,
         )
     except ValueError:
         return None
+
+
+# Regex helpers for parsing the embedded JSON.
+# The DOM doesn't render Indeed's post dates; the date is embedded in
+# window.mosaic JSON. Each job object has 'jobkey' (16-char hex), then later
+# 'createDate' (epoch ms) and 'formattedRelativeTime' (e.g. 'Just posted').
+# We build a {jobkey: iso_date} map and look up each card by its data-jk.
+_JK_RE = re.compile(r'"jobkey":"([a-f0-9]{16})"')
+_DATE_TS_RE = re.compile(r'"createDate":(\d{13})')
+_DATE_TEXT_RE = re.compile(r'"formattedRelativeTime":"([^"]+)"')
+
+
+def _extract_indeed_dates_by_jk(html: str) -> dict[str, str]:
+    """
+    Build a {jobkey: 'YYYY-MM-DD'} map from Indeed's embedded window.mosaic JSON.
+    The DOM doesn't render the date; Indeed hydrates it from JSON after
+    page load. Cards are matched to dates by their data-jk attribute.
+    """
+    from datetime import datetime, timezone
+    jks = _JK_RE.findall(html)
+    ts_iter = list(_DATE_TS_RE.finditer(html))
+    text_iter = list(_DATE_TEXT_RE.finditer(html))
+    # Pair createDate and formattedRelativeTime by position (they appear
+    # in the same order within the same script block).
+    dates_by_pos: list[tuple[str, str]] = []  # (iso_date, raw_text)
+    for ts_m, text_m in zip(ts_iter, text_iter):
+        try:
+            dt = datetime.fromtimestamp(int(ts_m.group(1)) / 1000, tz=timezone.utc)
+            iso = dt.strftime("%Y-%m-%d")
+        except (ValueError, OSError):
+            iso = text_m.group(1)
+        dates_by_pos.append((iso, text_m.group(1)))
+    # Match each jobkey to a date by going forward from jobkey position and
+    # finding the next createDate. This handles Indeed's nested JSON where
+    # jks and createDates can be in different orders.
+    out: dict[str, str] = {}
+    for jk in jks:
+        # Find the position of this jobkey in the HTML
+        idx = html.find(f'"jobkey":"{jk}"')
+        if idx == -1:
+            continue
+        # Find the next createDate at or after idx
+        for ts_m in ts_iter:
+            if ts_m.start() >= idx:
+                # Find the corresponding formattedRelativeTime
+                # by position-paired list
+                pos = ts_iter.index(ts_m) if ts_m in ts_iter else -1
+                if pos < len(dates_by_pos):
+                    out[jk] = dates_by_pos[pos][0]
+                else:
+                    out[jk] = ""
+                break
+    return out
 
 
 async def _scrape_one_url(url: str) -> List[dict]:
@@ -136,9 +189,23 @@ async def _scrape_one_url(url: str) -> List[dict]:
                     )
                     soup = BeautifulSoup(html, "html.parser")
                     cards = soup.select(WAIT_SELECTOR)
+                    # Build a {jobkey: iso_date} map from the page's
+                    # embedded window.mosaic JSON. Indeed doesn't render
+                    # the post date in the DOM — it hydrates from JSON.
+                    date_map = _extract_indeed_dates_by_jk(html)
                     for card in cards:
+                        # Grab the jk from the card so we can look up its date
+                        link_el = card.select_one("a[data-jk], a[href*='/viewjob']")
+                        jk = (link_el.get("data-jk", "") if link_el else "") or ""
+                        if not jk:
+                            href = link_el.get("href", "") if link_el else ""
+                            m = re.search(r"jk=([a-f0-9]+)", href)
+                            if m:
+                                jk = m.group(1)
                         lead = _parse_card(card, base_url=url)
                         if lead and is_target_city(lead["city"], lead["area"]):
+                            if jk and jk in date_map:
+                                lead["date_posted"] = date_map[jk]
                             leads.append(lead)
                 except Exception as e:
                     logger.warning(f"Indeed page {page_url}: {e}")
