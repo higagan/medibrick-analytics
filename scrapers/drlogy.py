@@ -48,6 +48,10 @@ def _parse_card_text(card_text: str, href: str) -> dict | None:
     if m:
         city_raw = m.group(1).replace("-", " ").title()
     city, area = split_city_area(city_raw)
+    # Normalize Bangalore → Bengaluru. DrLogy uses both /jobs/bangalore and
+    # /jobs/bengaluru slugs for the same city; the official name is Bengaluru.
+    if city and city.strip().lower() == "bangalore":
+        city = "Bengaluru"
 
     # Salary: 'Not disclosed' is a valid value — show it. Real salaries have ₹ or L/Cr/K
     salary = None

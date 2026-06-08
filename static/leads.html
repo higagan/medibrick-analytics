@@ -294,14 +294,16 @@
     }
 
     function populateDropdowns(leads) {
-      // Build a city -> Set(areas) map from current leads
+      // Build a city -> Map(area -> count) from current leads. Counts in the
+      // area dropdown show users that small counts are real (e.g. "Girinagar
+      // (1)") instead of a filter bug.
       const byCity = new Map();
       for (const l of leads) {
         const c = (l.city || '').trim();
         if (!c) continue;
-        if (!byCity.has(c)) byCity.set(c, new Set());
+        if (!byCity.has(c)) byCity.set(c, new Map());
         const a = (l.area || '').trim();
-        if (a) byCity.get(c).add(a);
+        if (a) byCity.get(c).set(a, (byCity.get(c).get(a) || 0) + 1);
       }
       // Save current selections
       const curCity = cityInput.value;
@@ -310,26 +312,29 @@
       cityInput.innerHTML = '<option value="">All cities</option>';
       const cities = [...byCity.keys()].sort();
       for (const c of cities) {
+        const total = [...byCity.get(c).values()].reduce((s, n) => s + n, 0);
         const opt = document.createElement('option');
         opt.value = c;
-        opt.textContent = c;
+        opt.textContent = `${c} (${total})`;
         cityInput.appendChild(opt);
       }
       // Restore city selection if still valid
       if (curCity && cities.includes(curCity)) cityInput.value = curCity;
-      // Rebuild area dropdown for current city
+      // Rebuild area dropdown for current city, sorted by count desc
       function rebuildAreas() {
         const sel = cityInput.value;
-        const areas = sel && byCity.has(sel) ? [...byCity.get(sel)].sort() : [];
+        const cityMap = sel && byCity.has(sel) ? byCity.get(sel) : new Map();
+        const areas = [...cityMap.entries()]
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
         areaInput.innerHTML = '<option value="">All areas</option>';
-        for (const a of areas) {
+        for (const [a, n] of areas) {
           const opt = document.createElement('option');
           opt.value = a;
-          opt.textContent = a;
+          opt.textContent = `${a} (${n})`;
           areaInput.appendChild(opt);
         }
         areaInput.disabled = areas.length === 0;
-        if (curArea && areas.includes(curArea)) areaInput.value = curArea;
+        if (curArea && areas.some(([a]) => a === curArea)) areaInput.value = curArea;
       }
       rebuildAreas();
       cityInput.onchange = () => { areaInput.value = ''; rebuildAreas(); debouncedRender(); };
