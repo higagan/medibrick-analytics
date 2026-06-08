@@ -62,13 +62,26 @@ def _parse_card(card, base_url: str) -> dict | None:
     currency_re = re.compile(r"[₹$€£]|lakh|per\s+(month|year|hour|week|day|shift|annum)", re.IGNORECASE)
     has_digits = lambda s: any(c.isdigit() for c in s)
 
-    # Collect all attribute snippets, then classify each
-    salary_el = card.select_one("[data-testid='attribute_snippet_testid'], .salary-snippet, .salaryText")
+    # Collect all attribute snippets, then classify each. Indeed India uses
+    # two distinct elements: salary snippets have a `salary-snippet-container`
+    # class (and `data-testid` = "attribute_snippet_testid salary-snippet-
+    # container" with a SPACE in the attribute value), while hiring-type
+    # snippets have data-testid="attribute_snippet_testid" only. The
+    # old `[data-testid='attribute_snippet_testid']` selector does NOT match
+    # the salary element because its testid is the space-separated variant.
     snippets = []
-    if salary_el:
-        snippets.append(salary_el.get_text(strip=True))
-    for extra in card.select("[data-testid='attribute_snippet_testid']"):
-        txt = extra.get_text(strip=True)
+    # Salary first — distinguished by the salary-snippet-container class
+    for el in card.select("[class*='salary-snippet'], .salaryText, [class*='Salary']"):
+        txt = el.get_text(strip=True)
+        if txt and txt not in snippets:
+            snippets.insert(0, txt)
+    # Hiring type and any other attribute snippets
+    for el in card.select("[data-testid='attribute_snippet_testid']"):
+        classes = (el.get("class") or [])
+        # Skip the salary element (already added above) to avoid duplicates
+        if any("salary" in c.lower() for c in classes):
+            continue
+        txt = el.get_text(strip=True)
         if txt and txt not in snippets:
             snippets.append(txt)
 
