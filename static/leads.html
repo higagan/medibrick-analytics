@@ -89,7 +89,15 @@
       if (role === 'rmo') return /\b(rmo|resident medical officer|junior resident|senior resident|registrar|resident)\b/.test(haystack);
       if (role === 'bams') return /\b(bams|ayurveda|ayurvedic)\b/.test(haystack);
       if (role === 'bhms') return /\b(bhms|homeopathy|homeopathic)\b/.test(haystack);
-      if (role === 'specialist') return /\b(specialist|consultant)\b/.test(haystack);
+      if (role === 'specialist') {
+        // 'Specialist' alone is too broad (catches insurance 'Medical Evaluation
+        // Specialist' at Plum Benefits, etc.). Require it to be the lead role
+        // or paired with a medical keyword.
+        const lead = haystack.trim();
+        if (/^(specialist|consultant|consultant doctor|specialist doctor|senior consultant|junior consultant|specialist physician|consultant physician)\b/.test(lead)) return true;
+        if (/\b(consultant|specialist)\b/.test(lead) && /\b(physician|mbbs|md|ms|dm|mch|dnb|doctor|surgeon|hospital|clinic)\b/.test(lead)) return true;
+        return false;
+      }
       if (role === 'locum') return /\b(locum|temporary|contract|walk[-\s]?in|urgent|immediate|flexible)\b/.test(haystack);
       if (role === 'nurse') return /\b(nurse|nursing|gnm|anm|bsc nursing|ot nurse|icu nurse)\b/.test(haystack);
       return false;
@@ -177,11 +185,30 @@
       `;
     }
 
+    function updateSubtitle(filteredCount) {
+      // Count only leads whose ORIGINAL post date (date_posted) is in the last 24h.
+      // We don't fall back to created_at because that's when WE scraped, not
+      // when the job was posted — the user explicitly asked for the post date.
+      const now = Date.now();
+      const dayAgo = now - 24 * 60 * 60 * 1000;
+      const postedInLast24h = allLeads.filter(l => {
+        if (!l.date_posted) return false;
+        const t = new Date(l.date_posted).getTime();
+        return !isNaN(t) && t >= dayAgo;
+      }).length;
+      let subtitle = `Showing ${filteredCount} lead${filteredCount === 1 ? '' : 's'}`;
+      if (postedInLast24h > 0 && filteredCount === allLeads.length) {
+        subtitle += ` • ${postedInLast24h} posted in last 24h`;
+      }
+      leadsSubtitle.textContent = subtitle;
+    }
+
     function renderResults() {
       if (!allLeads.length) {
         message.textContent = 'No leads yet. Run the scraper on your laptop to populate.';
         message.classList.remove('hidden');
         results.innerHTML = '';
+        updateSubtitle(0);
         return;
       }
 
@@ -196,14 +223,16 @@
       });
 
       if (!filtered.length) {
-        message.textContent = 'No leads match this filter.';
+        message.textContent = 'No leads match this filter. Try clearing one of the filters above.';
         message.classList.remove('hidden');
         results.innerHTML = '';
+        updateSubtitle(0);
         return;
       }
 
       message.classList.add('hidden');
       results.innerHTML = filtered.map(renderCard).join('');
+      updateSubtitle(filtered.length);
     }
 
     filterChipsEl.addEventListener('click', (e) => {
@@ -219,6 +248,11 @@
           b.classList.add('bg-white', 'text-gray-700', 'border-gray-300');
         }
       });
+      // "All" chip means no filters at all — clear city + area too
+      if (activeRole === 'all') {
+        cityInput.value = '';
+        areaInput.value = '';
+      }
       renderResults();
     });
 
