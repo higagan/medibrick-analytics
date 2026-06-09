@@ -71,7 +71,8 @@ def _score_lead(lead: dict) -> int:
 
 
 def dedup_leads(leads: List[dict]) -> List[dict]:
-    """Deduplicate by (hospital, role, city, area), keeping the richest."""
+    """Deduplicate by (hospital, role, city, area), keeping the richest.
+    Sets repost_count on the best lead so the UI can show 🔥 actively hiring."""
     buckets: Dict[str, List[dict]] = {}
     for lead in leads:
         key = _lead_key(lead)
@@ -81,6 +82,8 @@ def dedup_leads(leads: List[dict]) -> List[dict]:
     for group in buckets.values():
         # Pick the lead with the highest richness score
         best = max(group, key=_score_lead)
+        # repost_count = how many times we saw this exact job (including the best one)
+        best["repost_count"] = len(group)
         result.append(best)
     return result
 
