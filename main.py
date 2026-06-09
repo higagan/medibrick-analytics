@@ -192,7 +192,9 @@ async def fetch_from_google(area: str) -> List[MedicalCenter]:
         try:
             places = await google_nearby_search(lat, lon, amenity)
             for place in places:
-                name = place.get("name", "Unnamed")
+                name = place.get("name", "").strip()
+                if not name or name.lower() == "unnamed":
+                    continue
                 if name in seen_names:
                     continue
                 seen_names.add(name)
@@ -311,7 +313,9 @@ out body center;
         seen_ids.add(uid)
 
         tags = el.get("tags", {})
-        name = tags.get("name", "Unnamed")
+        name = tags.get("name", "").strip()
+        if not name or name.lower() == "unnamed":
+            continue
         amenity = tags.get("amenity", "")
         healthcare = tags.get("healthcare", "")
         speciality = tags.get("healthcare:speciality", "")
