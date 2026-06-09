@@ -165,9 +165,10 @@
       const hospital = showCanonical
         ? `${escapeHtml(canonical)} <span class="text-xs text-gray-400 font-normal">(${escapeHtml(hospitalRaw)})</span>`
         : escapeHtml(hospitalRaw);
-      // Prefer LLM-classified role for the badge; fall back to scraper's raw value.
-      const llmRole = (lead.llm_data && lead.llm_data.role) || '';
-      const role = escapeHtml(llmRole || lead.role || 'Medical Staff');
+      // Show the original job title (e.g. "Duty Doctor") — the LLM role is only
+      // used for filtering chips, not for display. The actual title is what matters
+      // on a job board.
+      const role = escapeHtml(lead.role || 'Medical Staff');
       // Prefer LLM-classified department; fall back to scraper's raw value.
       const llmDept = (lead.llm_data && lead.llm_data.department) || '';
       const deptRaw = (llmDept || (lead.department || '')).trim();
