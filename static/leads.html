@@ -160,11 +160,17 @@
     function renderCard(lead) {
       const hospitalRaw = (lead.hospital || 'Unknown Hospital').trim();
       const canonical = (lead.llm_data && lead.llm_data.hospital_canonical) || '';
-      const showCanonical = canonical && canonical.toLowerCase() !== hospitalRaw.toLowerCase();
+      // Always prefer canonical when available; show raw in parens only if meaningfully different
+      const canonicalLower = canonical.toLowerCase();
+      const rawLower = hospitalRaw.toLowerCase();
+      const showCanonical = canonical && canonicalLower !== rawLower;
+      const showRawParens = showCanonical && !rawLower.includes(canonicalLower) && !canonicalLower.includes(rawLower);
       const hospital = showCanonical
-        ? `${escapeHtml(canonical)} <span class="text-xs text-gray-400 font-normal">(${escapeHtml(hospitalRaw)})</span>`
+        ? `${escapeHtml(canonical)}${showRawParens ? ` <span class="text-xs text-gray-400 font-normal">(${escapeHtml(hospitalRaw)})</span>` : ''}`
         : escapeHtml(hospitalRaw);
-      const role = escapeHtml(lead.role || 'Medical Staff');
+      // Prefer LLM-classified role for the badge; fall back to scraper's raw value.
+      const llmRole = (lead.llm_data && lead.llm_data.role) || '';
+      const role = escapeHtml(llmRole || lead.role || 'Medical Staff');
       // Prefer LLM-classified department; fall back to scraper's raw value.
       const llmDept = (lead.llm_data && lead.llm_data.department) || '';
       const deptRaw = (llmDept || (lead.department || '')).trim();
