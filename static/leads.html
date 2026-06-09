@@ -161,12 +161,9 @@
       const hospitalRaw = (lead.hospital || 'Unknown Hospital').trim();
       const canonical = (lead.llm_data && lead.llm_data.hospital_canonical) || '';
       // Always prefer canonical when available; show raw in parens only if meaningfully different
-      const canonicalLower = canonical.toLowerCase();
-      const rawLower = hospitalRaw.toLowerCase();
-      const showCanonical = canonical && canonicalLower !== rawLower;
-      const showRawParens = showCanonical && !rawLower.includes(canonicalLower) && !canonicalLower.includes(rawLower);
+      const showCanonical = canonical && canonical !== hospitalRaw;
       const hospital = showCanonical
-        ? `${escapeHtml(canonical)}${showRawParens ? ` <span class="text-xs text-gray-400 font-normal">(${escapeHtml(hospitalRaw)})</span>` : ''}`
+        ? `${escapeHtml(canonical)} <span class="text-xs text-gray-400 font-normal">(${escapeHtml(hospitalRaw)})</span>`
         : escapeHtml(hospitalRaw);
       // Prefer LLM-classified role for the badge; fall back to scraper's raw value.
       const llmRole = (lead.llm_data && lead.llm_data.role) || '';
