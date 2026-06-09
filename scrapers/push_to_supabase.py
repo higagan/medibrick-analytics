@@ -47,6 +47,44 @@ def _get_client() -> Optional["Client"]:
     return create_client(url, key)
 
 
+def _lead_key(lead: dict) -> str:
+    """Normalize a dedup key from hospital + role + city + area."""
+    parts = [
+        (lead.get("hospital") or "").strip().lower(),
+        (lead.get("role") or "").strip().lower(),
+        (lead.get("city") or "").strip().lower(),
+        (lead.get("area") or "").strip().lower(),
+    ]
+    return "|".join(parts)
+
+
+def _score_lead(lead: dict) -> int:
+    """Richness score: prefer leads with salary, date, and LLM data."""
+    score = 0
+    if lead.get("salary"):
+        score += 2
+    if lead.get("date_posted"):
+        score += 2
+    if lead.get("llm_data"):
+        score += 1
+    return score
+
+
+def dedup_leads(leads: List[dict]) -> List[dict]:
+    """Deduplicate by (hospital, role, city, area), keeping the richest."""
+    buckets: Dict[str, List[dict]] = {}
+    for lead in leads:
+        key = _lead_key(lead)
+        buckets.setdefault(key, []).append(lead)
+
+    result = []
+    for group in buckets.values():
+        # Pick the lead with the highest richness score
+        best = max(group, key=_score_lead)
+        result.append(best)
+    return result
+
+
 def push_leads(leads: List[dict]) -> Dict[str, int]:
     """
     Upsert leads into Supabase. Returns dict with counts:
@@ -61,6 +99,10 @@ def push_leads(leads: List[dict]) -> Dict[str, int]:
     # Skips silently if Ollama is offline or model not loaded.
     if _HAS_LLM:
         leads = enrich_batch(leads)
+
+    # Deduplicate by (hospital, role, city, area) — same job posted on multiple
+    # pages or reposted with different URLs. Keep the one with salary/date.
+    leads = dedup_leads(leads)
 
     client = _get_client()
     if client is None:
